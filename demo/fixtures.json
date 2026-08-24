@@ -1,0 +1,451 @@
+{
+  "unauthenticated": {
+    "ok": false,
+    "authenticated": false,
+    "error": "No API token configured. Please save your Personal Access Token in Settings."
+  },
+  "unlocked": {
+    "ok": true,
+    "authenticated": true,
+    "error": null,
+    "user_id": "demo-ynab-user-08",
+    "budgets": [
+      {
+        "id": "budget-1",
+        "name": "Personal Budget",
+        "last_modified_on": "2026-08-24T18:00:00Z"
+      },
+      {
+        "id": "budget-2",
+        "name": "Family Joint Budget",
+        "last_modified_on": "2026-08-23T14:30:00Z"
+      },
+      {
+        "id": "budget-3",
+        "name": "Side Business",
+        "last_modified_on": "2026-08-20T09:15:00Z"
+      }
+    ],
+    "active_budget_id": "budget-1",
+    "active_budget_name": "Personal Budget",
+    "currency": {
+      "iso_code": "USD",
+      "currency_symbol": "$",
+      "decimal_digits": 2,
+      "decimal_separator": ".",
+      "symbol_first": true,
+      "group_separator": ",",
+      "display_symbol": true
+    },
+    "current_month": "2026-08",
+    "ready_to_assign_milliunits": 1450000,
+    "ready_to_assign_formatted": "$1,450.00",
+    "ready_to_assign_status": "positive",
+    "overspent_categories_count": 1,
+    "unapproved_transactions_count": 3,
+    "age_of_money": {
+      "days": 48,
+      "status": "great",
+      "label": "Age of money is above 30 days"
+    },
+    "income_vs_spending": {
+      "income_milliunits": 5850000,
+      "income_formatted": "$5,850.00",
+      "spending_milliunits": 4220000,
+      "spending_formatted": "$4,220.00",
+      "net_milliunits": 1630000,
+      "net_formatted": "+$1,630.00",
+      "savings_rate_percent": 27.9,
+      "is_positive": true
+    },
+    "monthly_trends": [
+      {
+        "month": "2026-03-01",
+        "month_label": "Mar",
+        "income_milliunits": 5200000,
+        "income_formatted": "$5,200.00",
+        "spending_milliunits": 4100000,
+        "spending_formatted": "$4,100.00",
+        "net_milliunits": 1100000,
+        "net_formatted": "+$1,100.00",
+        "savings_rate_percent": 21.2,
+        "is_positive": true
+      },
+      {
+        "month": "2026-04-01",
+        "month_label": "Apr",
+        "income_milliunits": 5400000,
+        "income_formatted": "$5,400.00",
+        "spending_milliunits": 4350000,
+        "spending_formatted": "$4,350.00",
+        "net_milliunits": 1050000,
+        "net_formatted": "+$1,050.00",
+        "savings_rate_percent": 19.4,
+        "is_positive": true
+      },
+      {
+        "month": "2026-05-01",
+        "month_label": "May",
+        "income_milliunits": 5600000,
+        "income_formatted": "$5,600.00",
+        "spending_milliunits": 3900000,
+        "spending_formatted": "$3,900.00",
+        "net_milliunits": 1700000,
+        "net_formatted": "+$1,700.00",
+        "savings_rate_percent": 30.4,
+        "is_positive": true
+      },
+      {
+        "month": "2026-06-01",
+        "month_label": "Jun",
+        "income_milliunits": 5500000,
+        "income_formatted": "$5,500.00",
+        "spending_milliunits": 4450000,
+        "spending_formatted": "$4,450.00",
+        "net_milliunits": 1050000,
+        "net_formatted": "+$1,050.00",
+        "savings_rate_percent": 19.1,
+        "is_positive": true
+      },
+      {
+        "month": "2026-07-01",
+        "month_label": "Jul",
+        "income_milliunits": 6100000,
+        "income_formatted": "$6,100.00",
+        "spending_milliunits": 4200000,
+        "spending_formatted": "$4,200.00",
+        "net_milliunits": 1900000,
+        "net_formatted": "+$1,900.00",
+        "savings_rate_percent": 31.1,
+        "is_positive": true
+      },
+      {
+        "month": "2026-08-01",
+        "month_label": "Aug",
+        "income_milliunits": 5850000,
+        "income_formatted": "$5,850.00",
+        "spending_milliunits": 4220000,
+        "spending_formatted": "$4,220.00",
+        "net_milliunits": 1630000,
+        "net_formatted": "+$1,630.00",
+        "savings_rate_percent": 27.9,
+        "is_positive": true
+      }
+    ],
+    "category_groups": [
+      {
+        "id": "group-bills",
+        "name": "Immediate Obligations",
+        "budgeted_milliunits": 2290000,
+        "budgeted_formatted": "$2,290.00",
+        "activity_milliunits": -2290000,
+        "activity_formatted": "$2,290.00",
+        "balance_milliunits": 0,
+        "balance_formatted": "$0.00",
+        "categories": [
+          {
+            "id": "cat-rent",
+            "name": "Rent / Mortgage",
+            "budgeted_milliunits": 1850000,
+            "budgeted_formatted": "$1,850.00",
+            "activity_milliunits": -1850000,
+            "activity_formatted": "$1,850.00",
+            "balance_milliunits": 0,
+            "balance_formatted": "$0.00",
+            "goal_target_milliunits": 1850000,
+            "goal_target_formatted": "$1,850.00",
+            "goal_percentage": 100,
+            "status_color": "green",
+            "is_overspent": false,
+            "overspent_amount_formatted": null,
+            "progress_fraction": 1.0
+          },
+          {
+            "id": "cat-utilities",
+            "name": "Electric & Water",
+            "budgeted_milliunits": 240000,
+            "budgeted_formatted": "$240.00",
+            "activity_milliunits": -240000,
+            "activity_formatted": "$240.00",
+            "balance_milliunits": 0,
+            "balance_formatted": "$0.00",
+            "goal_target_milliunits": 240000,
+            "goal_target_formatted": "$240.00",
+            "goal_percentage": 100,
+            "status_color": "green",
+            "is_overspent": false,
+            "overspent_amount_formatted": null,
+            "progress_fraction": 1.0
+          },
+          {
+            "id": "cat-internet",
+            "name": "Fiber Internet",
+            "budgeted_milliunits": 80000,
+            "budgeted_formatted": "$80.00",
+            "activity_milliunits": -80000,
+            "activity_formatted": "$80.00",
+            "balance_milliunits": 0,
+            "balance_formatted": "$0.00",
+            "goal_target_milliunits": 80000,
+            "goal_target_formatted": "$80.00",
+            "goal_percentage": 100,
+            "status_color": "green",
+            "is_overspent": false,
+            "overspent_amount_formatted": null,
+            "progress_fraction": 1.0
+          },
+          {
+            "id": "cat-insurance",
+            "name": "Auto Insurance",
+            "budgeted_milliunits": 120000,
+            "budgeted_formatted": "$120.00",
+            "activity_milliunits": -120000,
+            "activity_formatted": "$120.00",
+            "balance_milliunits": 0,
+            "balance_formatted": "$0.00",
+            "goal_target_milliunits": 120000,
+            "goal_target_formatted": "$120.00",
+            "goal_percentage": 100,
+            "status_color": "green",
+            "is_overspent": false,
+            "overspent_amount_formatted": null,
+            "progress_fraction": 1.0
+          }
+        ]
+      },
+      {
+        "id": "group-food",
+        "name": "Food & Dining",
+        "budgeted_milliunits": 865000,
+        "budgeted_formatted": "$865.00",
+        "activity_milliunits": -730000,
+        "activity_formatted": "$730.00",
+        "balance_milliunits": 135000,
+        "balance_formatted": "$135.00",
+        "categories": [
+          {
+            "id": "cat-groceries",
+            "name": "Groceries",
+            "budgeted_milliunits": 550000,
+            "budgeted_formatted": "$550.00",
+            "activity_milliunits": -380000,
+            "activity_formatted": "$380.00",
+            "balance_milliunits": 170000,
+            "balance_formatted": "$170.00",
+            "goal_target_milliunits": 550000,
+            "goal_target_formatted": "$550.00",
+            "goal_percentage": 69,
+            "status_color": "green",
+            "is_overspent": false,
+            "overspent_amount_formatted": null,
+            "progress_fraction": 0.69
+          },
+          {
+            "id": "cat-dining",
+            "name": "Dining Out",
+            "budgeted_milliunits": 250000,
+            "budgeted_formatted": "$250.00",
+            "activity_milliunits": -285000,
+            "activity_formatted": "$285.00",
+            "balance_milliunits": -35000,
+            "balance_formatted": "-$35.00",
+            "goal_target_milliunits": 250000,
+            "goal_target_formatted": "$250.00",
+            "goal_percentage": 114,
+            "status_color": "red",
+            "is_overspent": true,
+            "overspent_amount_formatted": "$35.00",
+            "progress_fraction": 1.0
+          },
+          {
+            "id": "cat-coffee",
+            "name": "Coffee & Snacks",
+            "budgeted_milliunits": 65000,
+            "budgeted_formatted": "$65.00",
+            "activity_milliunits": -65000,
+            "activity_formatted": "$65.00",
+            "balance_milliunits": 0,
+            "balance_formatted": "$0.00",
+            "goal_target_milliunits": 65000,
+            "goal_target_formatted": "$65.00",
+            "goal_percentage": 100,
+            "status_color": "green",
+            "is_overspent": false,
+            "overspent_amount_formatted": null,
+            "progress_fraction": 1.0
+          }
+        ]
+      },
+      {
+        "id": "group-true-expenses",
+        "name": "True Expenses",
+        "budgeted_milliunits": 450000,
+        "budgeted_formatted": "$450.00",
+        "activity_milliunits": -310000,
+        "activity_formatted": "$310.00",
+        "balance_milliunits": 140000,
+        "balance_formatted": "$140.00",
+        "categories": [
+          {
+            "id": "cat-auto-maint",
+            "name": "Auto Maintenance",
+            "budgeted_milliunits": 150000,
+            "budgeted_formatted": "$150.00",
+            "activity_milliunits": -110000,
+            "activity_formatted": "$110.00",
+            "balance_milliunits": 40000,
+            "balance_formatted": "$40.00",
+            "goal_target_milliunits": 150000,
+            "goal_target_formatted": "$150.00",
+            "goal_percentage": 73,
+            "status_color": "green",
+            "is_overspent": false,
+            "overspent_amount_formatted": null,
+            "progress_fraction": 0.73
+          },
+          {
+            "id": "cat-medical",
+            "name": "Medical & Dental",
+            "budgeted_milliunits": 200000,
+            "budgeted_formatted": "$200.00",
+            "activity_milliunits": -100000,
+            "activity_formatted": "$100.00",
+            "balance_milliunits": 100000,
+            "balance_formatted": "$100.00",
+            "goal_target_milliunits": 200000,
+            "goal_target_formatted": "$200.00",
+            "goal_percentage": 50,
+            "status_color": "green",
+            "is_overspent": false,
+            "overspent_amount_formatted": null,
+            "progress_fraction": 0.50
+          },
+          {
+            "id": "cat-home",
+            "name": "Home Maintenance",
+            "budgeted_milliunits": 100000,
+            "budgeted_formatted": "$100.00",
+            "activity_milliunits": -100000,
+            "activity_formatted": "$100.00",
+            "balance_milliunits": 0,
+            "balance_formatted": "$0.00",
+            "goal_target_milliunits": 100000,
+            "goal_target_formatted": "$100.00",
+            "goal_percentage": 100,
+            "status_color": "green",
+            "is_overspent": false,
+            "overspent_amount_formatted": null,
+            "progress_fraction": 1.0
+          }
+        ]
+      },
+      {
+        "id": "group-quality",
+        "name": "Quality of Life",
+        "budgeted_milliunits": 450000,
+        "budgeted_formatted": "$450.00",
+        "activity_milliunits": -430000,
+        "activity_formatted": "$430.00",
+        "balance_milliunits": 20000,
+        "balance_formatted": "$20.00",
+        "categories": [
+          {
+            "id": "cat-fitness",
+            "name": "Gym & Fitness",
+            "budgeted_milliunits": 60000,
+            "budgeted_formatted": "$60.00",
+            "activity_milliunits": -60000,
+            "activity_formatted": "$60.00",
+            "balance_milliunits": 0,
+            "balance_formatted": "$0.00",
+            "goal_target_milliunits": 60000,
+            "goal_target_formatted": "$60.00",
+            "goal_percentage": 100,
+            "status_color": "green",
+            "is_overspent": false,
+            "overspent_amount_formatted": null,
+            "progress_fraction": 1.0
+          },
+          {
+            "id": "cat-entertainment",
+            "name": "Entertainment & Games",
+            "budgeted_milliunits": 140000,
+            "budgeted_formatted": "$140.00",
+            "activity_milliunits": -120000,
+            "activity_formatted": "$120.00",
+            "balance_milliunits": 20000,
+            "balance_formatted": "$20.00",
+            "goal_target_milliunits": 140000,
+            "goal_target_formatted": "$140.00",
+            "goal_percentage": 85,
+            "status_color": "green",
+            "is_overspent": false,
+            "overspent_amount_formatted": null,
+            "progress_fraction": 0.85
+          },
+          {
+            "id": "cat-vacation",
+            "name": "Vacation Fund",
+            "budgeted_milliunits": 250000,
+            "budgeted_formatted": "$250.00",
+            "activity_milliunits": -250000,
+            "activity_formatted": "$250.00",
+            "balance_milliunits": 0,
+            "balance_formatted": "$0.00",
+            "goal_target_milliunits": 250000,
+            "goal_target_formatted": "$250.00",
+            "goal_percentage": 100,
+            "status_color": "green",
+            "is_overspent": false,
+            "overspent_amount_formatted": null,
+            "progress_fraction": 1.0
+          }
+        ]
+      }
+    ],
+    "spending_pie_chart": [
+      {
+        "group_id": "group-bills",
+        "group_name": "Immediate Obligations",
+        "amount_milliunits": 2290000,
+        "amount_formatted": "$2,290.00",
+        "percentage": 54.3,
+        "slice_color_index": 0
+      },
+      {
+        "group_id": "group-food",
+        "group_name": "Food & Dining",
+        "amount_milliunits": 730000,
+        "amount_formatted": "$730.00",
+        "percentage": 17.3,
+        "slice_color_index": 1
+      },
+      {
+        "group_id": "group-quality",
+        "group_name": "Quality of Life",
+        "amount_milliunits": 430000,
+        "amount_formatted": "$430.00",
+        "percentage": 10.2,
+        "slice_color_index": 2
+      },
+      {
+        "group_id": "group-true-expenses",
+        "group_name": "True Expenses",
+        "amount_milliunits": 310000,
+        "amount_formatted": "$310.00",
+        "percentage": 7.3,
+        "slice_color_index": 3
+      },
+      {
+        "group_id": "group-other",
+        "group_name": "Other Spending",
+        "amount_milliunits": 460000,
+        "amount_formatted": "$460.00",
+        "percentage": 10.9,
+        "slice_color_index": 4
+      }
+    ],
+    "server_knowledge": 12345678,
+    "fetched_at": "2026-08-24T18:00:00Z"
+  }
+}

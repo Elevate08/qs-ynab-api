@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Mock ynab-cli binary for automated demo testing and screenshot generation.
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+FIXTURES="$DIR/fixtures.json"
+MODE="${QSYNAB_DEMO_STATUS:-unlocked}"
+
+case "${1:-fetch}" in
+  fetch)
+    /usr/bin/python3 -c "
+import json, sys
+with open('$FIXTURES') as f:
+    data = json.load(f)
+mode = '$MODE'
+payload = data.get(mode, data['unlocked'])
+print(json.dumps(payload, indent=2))
+"
+    ;;
+  auth)
+    case "${2:-check}" in
+      check)
+        if [ "$MODE" = "unauthenticated" ]; then
+          echo '{"ok":false,"authenticated":false,"error":"No token found"}'
+        else
+          echo '{"ok":true,"authenticated":true,"user_id":"demo-ynab-user-08"}'
+        fi
+        ;;
+      set)
+        echo '{"ok":true,"authenticated":true}'
+        ;;
+      clear)
+        echo '{"ok":true,"authenticated":false}'
+        ;;
+    esac
+    ;;
+  notify-setup)
+    echo '{"ok":true}'
+    ;;
+  *)
+    echo "ynab-cli demo mock"
+    ;;
+esac

@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.elevate08.ynab-glance",
+  "name": "YNAB Pulse",
+  "version": "1.0.0",
+  "author": "elevate08",
+  "license": "MIT",
+  "description": "Live You Need A Budget pulse in the Omarchy bar with budget progress, spending vs income, age of money, and spending pie charts.",
+  "kinds": [
+    "bar-widget",
+    "overlay"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml",
+    "overlay": "Settings.qml"
+  },
+  "barWidget": {
+    "displayName": "YNAB Pulse",
+    "description": "At-a-glance budget buckets, spending vs income, age of money, and spending breakdown.",
+    "category": "Finance",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "refreshIntervalHours": 24,
+      "showAgeOfMoneyInBar": true,
+      "iconGlyph": "\uf0d6",
+      "defaultBudgetId": "last-used"
+    },
+    "schema": [
+      {
+        "key": "refreshIntervalHours",
+        "type": "integer",
+        "label": "Refresh interval (hours)",
+        "min": 1,
+        "max": 168,
+        "step": 1,
+        "defaultValue": 24,
+        "description": "How often the background worker fetches updated budget and transaction data from YNAB (default 24h)."
+      },
+      {
+        "key": "showAgeOfMoneyInBar",
+        "type": "boolean",
+        "label": "Show Age of Money in bar",
+        "defaultValue": true,
+        "description": "Display Age of Money (days) next to the YNAB icon in the status bar pill."
+      },
+      {
+        "key": "defaultBudgetId",
+        "type": "string",
+        "label": "Default Budget ID",
+        "defaultValue": "last-used",
+        "description": "ID of the primary budget to track, or 'last-used' to use the most recently modified budget."
+      }
+    ]
+  }
+}
