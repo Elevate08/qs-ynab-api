@@ -1,4 +1,39 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+
+/// Remote text is display text, never markup and never multi-line, so it is
+/// stripped of control characters and bounded where it enters the process.
+///
+/// Two caps rather than one: a currency symbol has no business being longer
+/// than a few glyphs, while a category name legitimately is. Both go through
+/// the same rule so there is one place to change what "sanitized" means.
+const MAX_CURRENCY_GLYPH_CHARS: usize = 8;
+const MAX_DISPLAY_NAME_CHARS: usize = 120;
+
+fn sanitize(raw: &str, max_chars: usize) -> String {
+    raw.chars().filter(|c| !c.is_control()).take(max_chars).collect()
+}
+
+fn deserialize_currency_glyph<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(sanitize(&String::deserialize(deserializer)?, MAX_CURRENCY_GLYPH_CHARS))
+}
+
+fn deserialize_display_name<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(sanitize(&String::deserialize(deserializer)?, MAX_DISPLAY_NAME_CHARS))
+}
+
+fn deserialize_optional_display_name<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(Option::<String>::deserialize(deserializer)?
+        .map(|v| sanitize(&v, MAX_DISPLAY_NAME_CHARS)))
+}
 
 // --- YNAB Raw API Response Models ---
 
@@ -27,6 +62,7 @@ pub struct YnabBudgetsWrapper {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct YnabBudgetSummary {
     pub id: String,
+    #[serde(deserialize_with = "deserialize_display_name")]
     pub name: String,
     #[serde(default)]
     pub last_modified_on: Option<String>,
@@ -40,11 +76,15 @@ pub struct YnabBudgetSummary {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct YnabCurrencyFormat {
+    #[serde(deserialize_with = "deserialize_currency_glyph")]
     pub iso_code: String,
+    #[serde(deserialize_with = "deserialize_currency_glyph")]
     pub currency_symbol: String,
     pub decimal_digits: u32,
+    #[serde(deserialize_with = "deserialize_currency_glyph")]
     pub decimal_separator: String,
     pub symbol_first: bool,
+    #[serde(deserialize_with = "deserialize_currency_glyph")]
     pub group_separator: String,
     pub display_symbol: bool,
 }
@@ -70,6 +110,7 @@ pub struct YnabMonthsWrapper {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct YnabMonthSummary {
+    #[serde(deserialize_with = "deserialize_display_name")]
     pub month: String,
     #[serde(default)]
     pub income: i64,
@@ -92,6 +133,7 @@ pub struct YnabMonthWrapper {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct YnabMonthDetail {
+    #[serde(deserialize_with = "deserialize_display_name")]
     pub month: String,
     #[serde(default)]
     pub income: i64,
@@ -117,6 +159,7 @@ pub struct YnabCategoryGroupsWrapper {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct YnabCategoryGroupWithCategories {
     pub id: String,
+    #[serde(deserialize_with = "deserialize_display_name")]
     pub name: String,
     pub hidden: bool,
     pub deleted: bool,
@@ -128,8 +171,9 @@ pub struct YnabCategoryGroupWithCategories {
 pub struct YnabCategory {
     pub id: String,
     pub category_group_id: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_display_name")]
     pub category_group_name: Option<String>,
+    #[serde(deserialize_with = "deserialize_display_name")]
     pub name: String,
     pub hidden: bool,
     pub budgeted: i64,
@@ -157,11 +201,14 @@ pub struct YnabTransactionSummary {
     pub id: String,
     pub date: String,
     pub amount: i64,
+    #[serde(default, deserialize_with = "deserialize_optional_display_name")]
     pub memo: Option<String>,
     pub approved: bool,
     pub cleared: String,
     pub category_id: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_display_name")]
     pub payee_name: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_display_name")]
     pub category_name: Option<String>,
     pub deleted: bool,
 }
@@ -175,8 +222,9 @@ pub struct PluginOverviewResponse {
     pub authenticated: bool,
     #[serde(default)]
     pub error: Option<String>,
-    #[serde(default)]
-    pub user_id: Option<String>,
+    // No user_id: nothing reads it out of this payload (the settings screen
+    // takes it from `auth status`), and an account identifier that serves no
+    // purpose is just one more thing the cache would be holding.
     #[serde(default)]
     pub budgets: Vec<BudgetSelectionItem>,
     #[serde(default)]
@@ -293,4 +341,60 @@ pub struct SpendingPieSlice {
     pub amount_formatted: String,
     pub percentage: f64,
     pub slice_color_index: usize,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn currency_glyphs_are_bounded_and_control_free() {
+        // A hostile symbol must not survive as a long or control-bearing string.
+        let hostile = r#"{
+            "iso_code": "USD",
+            "currency_symbol": "$(id > /tmp/pwned); echo \u0000",
+            "decimal_digits": 2,
+            "decimal_separator": ".",
+            "symbol_first": true,
+            "group_separator": ",",
+            "display_symbol": true
+        }"#;
+        let parsed: YnabCurrencyFormat = serde_json::from_str(hostile).unwrap();
+        assert_eq!(parsed.currency_symbol.chars().count(), 8);
+        assert!(!parsed.currency_symbol.chars().any(|c| c.is_control()));
+    }
+
+    #[test]
+    fn ordinary_currency_formats_are_untouched() {
+        let normal = r#"{
+            "iso_code": "EUR",
+            "currency_symbol": "€",
+            "decimal_digits": 2,
+            "decimal_separator": ",",
+            "symbol_first": false,
+            "group_separator": ".",
+            "display_symbol": true
+        }"#;
+        let parsed: YnabCurrencyFormat = serde_json::from_str(normal).unwrap();
+        assert_eq!(parsed.currency_symbol, "€");
+        assert_eq!(parsed.group_separator, ".");
+    }
+
+    #[test]
+    fn display_names_are_bounded_and_control_free() {
+        let hostile = format!(
+            r#"{{ "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "name": {} }}"#,
+            serde_json::to_string(&format!("Groceries\n\u{7}{}", "A".repeat(500))).unwrap()
+        );
+        let parsed: YnabBudgetSummary = serde_json::from_str(&hostile).unwrap();
+        assert_eq!(parsed.name.chars().count(), MAX_DISPLAY_NAME_CHARS);
+        assert!(!parsed.name.chars().any(|c| c.is_control()));
+    }
+
+    #[test]
+    fn ordinary_display_names_are_untouched() {
+        let normal = r#"{ "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "name": "Caf\u00e9 & Dining \ud83c\udf7d" }"#;
+        let parsed: YnabBudgetSummary = serde_json::from_str(normal).unwrap();
+        assert_eq!(parsed.name, "Café & Dining 🍽");
+    }
 }

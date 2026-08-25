@@ -2,9 +2,14 @@ mod aggregator;
 mod api;
 mod auth;
 mod cache;
+mod crypto;
 mod models;
 mod notify;
+mod storage;
+#[cfg(test)]
+mod test_env;
 
+use api::ApiError;
 use clap::{Parser, Subcommand};
 use serde_json::json;
 
@@ -42,10 +47,15 @@ enum Commands {
 enum AuthCommands {
     /// Check if a valid token is present in the Secret Service keyring
     Status,
-    /// Securely save a new Personal Access Token to the keyring
+    /// Securely save a new Personal Access Token, read from stdin
+    ///
+    /// The token is never accepted as an argument: process arguments are
+    /// readable by any local process via /proc/<pid>/cmdline and are recorded
+    /// in shell history. Pipe it instead:  ynab-cli auth set < token.txt
     Set {
-        /// Personal access token from YNAB Developer settings
-        token: String,
+        /// Rejected on purpose - see the note above
+        #[arg(hide = true)]
+        token: Option<String>,
     },
     /// Remove the stored token from the keyring
     Clear,
@@ -98,6 +108,20 @@ fn main() {
                             }
                         }
                     }
+                    // A token that is present but unreadable is a different
+                    // state from no token at all: the fix is to re-enter it,
+                    // not to wonder why the panel forgot the connection.
+                    Err(auth::AuthError::Undecryptable(e)) => {
+                        println!(
+                            "{}",
+                            json!({
+                                "ok": false,
+                                "authenticated": false,
+                                "has_token": true,
+                                "error": format!("{}", e)
+                            })
+                        );
+                    }
                     Err(_) => {
                         println!(
                             "{}",
@@ -111,17 +135,24 @@ fn main() {
                 }
             }
             AuthCommands::Set { token } => {
-                let trimmed = token.trim().to_string();
-                if trimmed.is_empty() || trimmed.len() < 10 {
+                if token.is_some() {
                     println!(
                         "{}",
                         json!({
                             "ok": false,
-                            "error": "Invalid token length or format"
+                            "error": "Refusing to read a token from the command line, where any local process can read it from /proc. Pipe it to stdin instead: ynab-cli auth set < token.txt"
                         })
                     );
-                    std::process::exit(1);
+                    std::process::exit(2);
                 }
+
+                let trimmed = match auth::read_token_from_stdin() {
+                    Ok(t) => t,
+                    Err(e) => {
+                        println!("{}", json!({ "ok": false, "error": format!("{}", e) }));
+                        std::process::exit(1);
+                    }
+                };
 
                 // Verify token with YNAB API before saving to keyring
                 match api::YnabClient::new(trimmed.clone()) {
@@ -181,13 +212,34 @@ fn main() {
                     );
                     std::process::exit(1);
                 }
-                println!("{}", json!({ "ok": true, "cleared": true }));
+
+                // Revoking access must also erase the financial data already
+                // fetched with that token, not just the credential.
+                let cache_purged = cache::purge_cache().is_ok();
+                println!(
+                    "{}",
+                    json!({ "ok": true, "cleared": true, "cache_purged": cache_purged })
+                );
             }
         },
         Commands::Fetch { budget_id, force } => {
+            if let Some(ref requested) = budget_id {
+                if !api::is_valid_budget_id(requested) {
+                    println!(
+                        "{}",
+                        json!({
+                            "ok": false,
+                            "authenticated": false,
+                            "error": "Malformed --budget-id (expected a UUID)"
+                        })
+                    );
+                    std::process::exit(2);
+                }
+            }
+
             let token = match auth::get_token() {
                 Ok(t) => t,
-                Err(_) => {
+                Err(e) => {
                     // Check if we have cached data to display offline
                     if !force {
                         if let Some(cached) = cache::read_cache() {
@@ -200,7 +252,7 @@ fn main() {
                         json!({
                             "ok": false,
                             "authenticated": false,
-                            "error": "No YNAB Personal Access Token configured in Keyring"
+                            "error": format!("{}", e)
                         })
                     );
                     return;
@@ -222,8 +274,9 @@ fn main() {
                 }
             };
 
-            // Fetch user info & budget list
-            let user_info = client.get_user().ok();
+            // No /user call: its only consumer was the user_id that used to go
+            // into the payload, so fetching it now would be a round trip to
+            // collect an identifier nothing reads.
             let budgets_resp = match client.get_budgets() {
                 Ok(b) => b,
                 Err(e) => {
@@ -270,8 +323,41 @@ fn main() {
                 &budgets_resp.budgets[0]
             };
 
-            // Fetch current month summary
-            let month_resp = match client.get_current_month(&active_budget.id) {
+            // The four remaining calls depend only on the budget id, not on
+            // each other, so they run together instead of one after another.
+            //
+            // They share the pooled client, which is `Sync`, so each thread
+            // borrows it; `thread::scope` guarantees they finish before the
+            // borrow ends, so nothing needs to be cloned or reference-counted.
+            // Sequentially this was four round trips on a widget that opens on
+            // a keypress.
+            let budget_ref = &active_budget.id;
+            let client_ref = &client;
+            let (month_result, categories_result, months_result, unapproved_result) =
+                std::thread::scope(|scope| {
+                    let month = scope.spawn(move || client_ref.get_current_month(budget_ref));
+                    let categories =
+                        scope.spawn(move || client_ref.get_categories(budget_ref, None));
+                    let months = scope.spawn(move || client_ref.get_months(budget_ref));
+                    let unapproved =
+                        scope.spawn(move || client_ref.get_unapproved_transactions(budget_ref));
+                    (
+                        month.join(),
+                        categories.join(),
+                        months.join(),
+                        unapproved.join(),
+                    )
+                });
+
+            // A panicking worker is reported like any other failure rather
+            // than taking the process down with it.
+            let panicked = |what: &str| {
+                ApiError::NetworkError(format!("The {} request thread panicked", what))
+            };
+
+            // Checked in the same order as before, so a run that fails more
+            // than one way reports the same error it always did.
+            let month_resp = match month_result.unwrap_or_else(|_| Err(panicked("current month"))) {
                 Ok(m) => m,
                 Err(e) => {
                     if !force {
@@ -292,44 +378,44 @@ fn main() {
                 }
             };
 
-            // Fetch categories for active budget
-            let categories_resp = match client.get_categories(&active_budget.id, None) {
-                Ok(c) => c,
-                Err(e) => {
-                    if !force {
-                        if let Some(cached) = cache::read_cache() {
-                            println!("{}", serde_json::to_string(&cached).unwrap());
-                            return;
+            let categories_resp =
+                match categories_result.unwrap_or_else(|_| Err(panicked("categories"))) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        if !force {
+                            if let Some(cached) = cache::read_cache() {
+                                println!("{}", serde_json::to_string(&cached).unwrap());
+                                return;
+                            }
                         }
+                        println!(
+                            "{}",
+                            json!({
+                                "ok": false,
+                                "authenticated": true,
+                                "error": format!("Failed to fetch categories: {}", e)
+                            })
+                        );
+                        return;
                     }
-                    println!(
-                        "{}",
-                        json!({
-                            "ok": false,
-                            "authenticated": true,
-                            "error": format!("Failed to fetch categories: {}", e)
-                        })
-                    );
-                    return;
-                }
-            };
+                };
 
-            // Fetch multi-month history for trend graph
-            let months_history = client
-                .get_months(&active_budget.id)
+            // Both of these are decoration: a failure costs the trend graph or
+            // the review badge, not the panel.
+            let months_history = months_result
+                .ok()
+                .and_then(|r| r.ok())
                 .map(|w| w.months)
                 .unwrap_or_default();
 
-            // Fetch unapproved transactions for review count
-            let unapproved_count = client
-                .get_unapproved_transactions(&active_budget.id)
+            let unapproved_count = unapproved_result
                 .ok()
+                .and_then(|r| r.ok())
                 .map(|t| t.transactions.len())
                 .unwrap_or(0);
 
             // Aggregate metrics into unified overview
             let overview = aggregator::build_overview_payload(
-                user_info.map(|u| u.user.id),
                 &budgets_resp.budgets,
                 active_budget,
                 &month_resp.month,
@@ -339,8 +425,12 @@ fn main() {
                 categories_resp.server_knowledge,
             );
 
-            // Persist to secure cache
-            let _ = cache::write_cache(&overview);
+            // Non-fatal - the fetch succeeded and the panel has its data - but
+            // not silent, or a cache that stops updating looks like nothing at
+            // all. stderr, because stdout is the JSON the panel parses.
+            if let Err(e) = cache::write_cache(&overview) {
+                eprintln!("ynab-cli: could not write the offline cache: {}", e);
+            }
 
             println!("{}", serde_json::to_string_pretty(&overview).unwrap());
         }

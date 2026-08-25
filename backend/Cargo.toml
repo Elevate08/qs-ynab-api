@@ -10,8 +10,12 @@ clap = { version = "4.5", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "blocking"] }
-keyring = { version = "3.6", features = ["linux-native"] }
+keyring = { version = "3.6", features = ["sync-secret-service", "crypto-rust"] }
 chrono = { version = "0.4", features = ["serde"] }
+zeroize = "1.8"
+libc = "0.2"
+chacha20poly1305 = "0.10"
+getrandom = "0.4"
 
 [profile.release]
 opt-level = 3

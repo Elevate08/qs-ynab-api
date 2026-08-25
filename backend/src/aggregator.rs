@@ -5,22 +5,39 @@ use crate::models::{
 };
 use chrono::Utc;
 
+/// Upper bound on `decimal_digits` taken from the API response. The field is
+/// remote input used as a `pow` exponent and a format width, so an absurd value
+/// would overflow the exponent and make `format!` allocate gigabytes of padding.
+const MAX_DECIMAL_DIGITS: u32 = 8;
+
+/// Ceilings on how much of a response is turned into panel content. Real
+/// budgets are far below these; the caps exist so a hostile or corrupted
+/// response cannot make the shell build an unbounded number of delegates and
+/// hang the whole desktop bar.
+const MAX_GROUPS: usize = 200;
+const MAX_CATEGORIES_PER_GROUP: usize = 500;
+const MAX_PIE_SLICES: usize = 50;
+/// A month label is "Aug". Anything the API sends that is not a month we know
+/// still has to fit where "Aug" goes.
+const MAX_MONTH_LABEL_CHARS: usize = 8;
+
 /// Formats YNAB milliunits (1/1000th unit, e.g. 1000 = $1.00) into currency string
 pub fn format_currency(milliunits: i64, format: &YnabCurrencyFormat) -> String {
     let is_negative = milliunits < 0;
-    let abs_milli = milliunits.abs();
+    let abs_milli = milliunits.saturating_abs();
     let divisor = 1000.0;
     let units = abs_milli as f64 / divisor;
+    let decimal_digits = format.decimal_digits.min(MAX_DECIMAL_DIGITS);
 
-    let formatted_number = if format.decimal_digits == 0 {
+    let formatted_number = if decimal_digits == 0 {
         let whole = units.round() as i64;
         format_integer_with_groups(whole, &format.group_separator)
     } else {
         let whole = units.floor() as i64;
-        let frac_scale = 10u32.pow(format.decimal_digits) as f64;
+        let frac_scale = 10u32.pow(decimal_digits) as f64;
         let frac = ((units - whole as f64) * frac_scale).round() as u64;
         let whole_str = format_integer_with_groups(whole, &format.group_separator);
-        let frac_str = format!("{:0width$}", frac, width = format.decimal_digits as usize);
+        let frac_str = format!("{:0width$}", frac, width = decimal_digits as usize);
         format!("{}{}{}", whole_str, format.decimal_separator, frac_str)
     };
 
@@ -128,8 +145,8 @@ pub fn aggregate_income_vs_spending(
     currency: &YnabCurrencyFormat,
 ) -> IncomeVsSpendingMetric {
     let income = month.income.max(0);
-    let spending = month.activity.abs(); // YNAB activity is negative for expenses
-    let net = income - spending;
+    let spending = month.activity.saturating_abs(); // YNAB activity is negative for expenses
+    let net = income.saturating_sub(spending);
     let is_positive = net >= 0;
 
     let savings_rate = if income > 0 {
@@ -167,10 +184,12 @@ pub fn format_month_label(month_str: &str) -> String {
             "10" => "Oct".to_string(),
             "11" => "Nov".to_string(),
             "12" => "Dec".to_string(),
-            _ => parts[1].to_string(),
+            // Not a month we recognise. Sanitization bounds this to 120
+            // chars at the boundary; a bar label wants far less.
+            other => other.chars().take(MAX_MONTH_LABEL_CHARS).collect(),
         }
     } else {
-        month_str.to_string()
+        month_str.chars().take(MAX_MONTH_LABEL_CHARS).collect()
     }
 }
 
@@ -193,8 +212,8 @@ pub fn aggregate_monthly_trends(
     slice
         .iter()
         .map(|m| {
-            let spending_milliunits = m.activity.abs();
-            let net_milliunits = m.income - spending_milliunits;
+            let spending_milliunits = m.activity.saturating_abs();
+            let net_milliunits = m.income.saturating_sub(spending_milliunits);
             let is_positive = net_milliunits >= 0;
             let savings_rate_percent = if m.income > 0 {
                 let rate = (net_milliunits as f64 / m.income as f64) * 100.0;
@@ -221,7 +240,6 @@ pub fn aggregate_monthly_trends(
 
 /// Builds aggregated overview payload
 pub fn build_overview_payload(
-    user_id: Option<String>,
     budgets: &[YnabBudgetSummary],
     active_budget: &YnabBudgetSummary,
     month: &YnabMonthDetail,
@@ -266,6 +284,9 @@ pub fn build_overview_payload(
     let mut overspent_categories_count: usize = 0;
 
     for group in category_groups_raw {
+        if category_groups.len() >= MAX_GROUPS {
+            break;
+        }
         if group.hidden || group.deleted {
             continue;
         }
@@ -281,13 +302,16 @@ pub fn build_overview_payload(
         let mut items = Vec::new();
 
         for cat in &group.categories {
+            if items.len() >= MAX_CATEGORIES_PER_GROUP {
+                break;
+            }
             if cat.hidden || cat.deleted {
                 continue;
             }
 
-            group_budgeted += cat.budgeted;
-            group_activity += cat.activity;
-            group_balance += cat.balance;
+            group_budgeted = group_budgeted.saturating_add(cat.budgeted);
+            group_activity = group_activity.saturating_add(cat.activity);
+            group_balance = group_balance.saturating_add(cat.balance);
 
             let (status_color, progress_fraction) = determine_category_status(
                 cat.balance,
@@ -302,7 +326,7 @@ pub fn build_overview_payload(
             }
 
             let overspent_amount_formatted = if is_overspent {
-                Some(format_currency(cat.balance.abs(), &currency))
+                Some(format_currency(cat.balance.saturating_abs(), &currency))
             } else {
                 None
             };
@@ -331,9 +355,9 @@ pub fn build_overview_payload(
         }
 
         if !items.is_empty() {
-            let group_spending = group_activity.abs();
+            let group_spending = group_activity.saturating_abs();
             if group_activity < 0 {
-                total_spending_milli += group_spending;
+                total_spending_milli = total_spending_milli.saturating_add(group_spending);
                 pie_slices_raw.push((group.id.clone(), group.name.clone(), group_spending));
             }
 
@@ -353,6 +377,7 @@ pub fn build_overview_payload(
 
     // Sort and calculate Pie Chart slices
     pie_slices_raw.sort_by(|a, b| b.2.cmp(&a.2));
+    pie_slices_raw.truncate(MAX_PIE_SLICES);
     let mut spending_pie_chart = Vec::new();
     for (idx, (gid, gname, amount)) in pie_slices_raw.into_iter().enumerate() {
         let pct = if total_spending_milli > 0 {
@@ -375,7 +400,6 @@ pub fn build_overview_payload(
         ok: true,
         authenticated: true,
         error: None,
-        user_id,
         budgets: budget_list,
         active_budget_id: Some(active_budget.id.clone()),
         active_budget_name: Some(active_budget.name.clone()),
@@ -431,6 +455,84 @@ mod tests {
         // Zero balance = muted
         let (c, _) = determine_category_status(0, 0, None, None);
         assert_eq!(c, "muted");
+    }
+
+    #[test]
+    fn test_format_currency_survives_hostile_api_values() {
+        // decimal_digits is remote input; an absurd value must be clamped
+        // rather than used as a pow exponent and a format width.
+        let mut fmt = YnabCurrencyFormat::default();
+        fmt.decimal_digits = u32::MAX;
+        let out = format_currency(123450, &fmt);
+        assert!(out.len() < 64, "padding was not clamped: {} chars", out.len());
+
+        // i64::MIN has no positive counterpart; abs() must not overflow.
+        let fmt = YnabCurrencyFormat::default();
+        let _ = format_currency(i64::MIN, &fmt);
+    }
+
+    #[test]
+    fn test_payload_entity_counts_are_capped() {
+        use crate::models::{YnabCategory, YnabCategoryGroupWithCategories};
+
+        let make_cat = |i: usize| YnabCategory {
+            id: format!("cat-{}", i),
+            category_group_id: "g".to_string(),
+            category_group_name: None,
+            name: format!("Category {}", i),
+            hidden: false,
+            budgeted: 1000,
+            activity: -1000,
+            balance: 0,
+            goal_type: None,
+            goal_target: None,
+            goal_percentage_complete: None,
+            goal_target_month: None,
+            deleted: false,
+        };
+
+        // A response far larger than any real budget must not pass through whole.
+        let groups: Vec<_> = (0..MAX_GROUPS + 50)
+            .map(|g| YnabCategoryGroupWithCategories {
+                id: format!("group-{}", g),
+                name: format!("Group {}", g),
+                hidden: false,
+                deleted: false,
+                categories: (0..MAX_CATEGORIES_PER_GROUP + 25).map(make_cat).collect(),
+            })
+            .collect();
+
+        let budget = YnabBudgetSummary {
+            id: "3fa85f64-5717-4562-b3fc-2c963f66afa6".to_string(),
+            name: "B".to_string(),
+            last_modified_on: None,
+            first_month: None,
+            last_month: None,
+            currency_format: None,
+        };
+        let month = YnabMonthDetail {
+            month: "2026-08-01".to_string(),
+            income: 0,
+            budgeted: 0,
+            activity: 0,
+            to_be_budgeted: 0,
+            age_of_money: None,
+            categories: vec![],
+        };
+
+        let out = build_overview_payload(
+            std::slice::from_ref(&budget),
+            &budget,
+            &month,
+            &[],
+            &groups,
+            0,
+            None,
+        );
+
+        assert_eq!(out.category_groups.len(), MAX_GROUPS);
+        assert_eq!(out.category_groups[0].categories.len(), MAX_CATEGORIES_PER_GROUP);
+        assert!(out.spending_pie_chart.len() <= MAX_PIE_SLICES);
     }
 
     #[test]

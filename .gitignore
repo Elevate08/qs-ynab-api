@@ -1,7 +1,9 @@
 # Build & Cargo
 target/
-Cargo.lock
 bin/ynab-cli
+
+# backend/Cargo.lock is intentionally committed: this crate ships a binary,
+# so the lockfile is what makes builds reproducible and auditable.
 
 # Secrets & Environment
 .token
