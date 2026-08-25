@@ -61,41 +61,14 @@ All navigation and actions can be operated entirely via keyboard with the `Alt` 
 
 ## Installation & Setup
 
-### Option A — from a release (no Rust toolchain needed)
-
-Each tagged release publishes a bundle with the helper binary already built,
-plus a `SHA256SUMS` file. Verify before you install: the binary is what receives
-your Personal Access Token.
-
-```bash
-VERSION=v1.0.0
-cd /tmp
-curl -LO https://github.com/Elevate08/qs-ynab-api/releases/download/$VERSION/ynab-pulse-$VERSION-x86_64-linux.tar.gz
-curl -LO https://github.com/Elevate08/qs-ynab-api/releases/download/$VERSION/SHA256SUMS
-sha256sum --check --ignore-missing SHA256SUMS   # must print: OK
-
-mkdir -p ~/.config/omarchy/plugins
-tar -xzf ynab-pulse-$VERSION-x86_64-linux.tar.gz -C ~/.config/omarchy/plugins
-```
-
-The archive extracts to `io.github.elevate08.ynab-glance/`, the directory name
-Omarchy expects. Releases are built by GitHub Actions from the tagged source and
-carry build provenance, so you can also check where the binary came from:
-
-```bash
-gh attestation verify ynab-pulse-$VERSION-x86_64-linux.tar.gz --repo Elevate08/qs-ynab-api
-```
-
-Then skip to step 3.
-
-### Option B — from source
-
-1. **Install the Plugin**:
-   Clone or copy this repository into your Omarchy plugins directory:
+1. **Install and enable the plugin with Omarchy**:
    ```bash
-   mkdir -p ~/.config/omarchy/plugins
-   cp -r /path/to/qs-ynab-api ~/.config/omarchy/plugins/io.github.elevate08.ynab-glance
+   omarchy plugin add https://github.com/Elevate08/qs-ynab-api.git --enable
    ```
+
+   Omarchy validates the plugin manifest, installs the repository under the
+   correct plugin ID, and enables the widget. Choose the right bar section if
+   prompted; the plugin also declares `right` as its default placement.
 
 2. **Build the Backend Helper**:
    ```bash
@@ -107,21 +80,7 @@ Then skip to step 3.
    over D-Bus to store your token. A running Secret Service provider (GNOME
    Keyring, KWallet, KeePassXC) must be available at runtime.
 
-3. **Add Widget to Omarchy Bar**:
-   Add `io.github.elevate08.ynab-glance` to your bar configuration in `~/.config/omarchy/shell.json`:
-   ```json
-   {
-     "bar": {
-       "sections": {
-         "right": [
-           "io.github.elevate08.ynab-glance"
-         ]
-       }
-     }
-   }
-   ```
-
-4. **Connect your YNAB Account**:
+3. **Connect your YNAB Account**:
    - Generate a Personal Access Token in [YNAB Account Settings > Developer](https://app.ynab.com/settings/developer).
    - Click the bar widget, paste your token, and click **Save & Connect**.
 
