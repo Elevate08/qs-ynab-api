@@ -16,7 +16,7 @@ use serde_json::json;
 #[derive(Parser)]
 #[command(name = "ynab-cli")]
 #[command(about = "Fast, secure backend engine for the Omarchy YNAB Pulse plugin")]
-#[command(version = "1.0.0")]
+#[command(version)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
