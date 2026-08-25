@@ -19,7 +19,7 @@ local ones are the interesting case for a desktop widget.
 | Boundary | Untrusted input | Control |
 |---|---|---|
 | YNAB API → `ynab-cli` | JSON response body | Typed deserialization; response bodies capped at 16 MiB; `decimal_digits` clamped; currency symbols/separators stripped of control characters and capped at 8 chars; budget/group/category names stripped of control characters and capped at 120 chars; saturating money arithmetic; entity counts capped before rendering; error bodies truncated to 200 chars |
-| `ynab-cli` stdout → QML | JSON text | Parsed in `try/catch`; no `RichText`, no `eval`, no dynamic QML |
+| `ynab-cli` stdout → QML | JSON text | Parsed in `try/catch`; every `Text` pins `textFormat: Text.PlainText`; `plainLabel` neutralizes shared button controls; no `RichText`, no `eval`, no dynamic QML |
 | User keyboard → `ynab-cli` | The PAT | Passed on **stdin**, never argv; charset- and length-validated, then sealed with XChaCha20-Poly1305 before it reaches the keyring |
 | Disk → `ynab-cli` | Encryption key file | Opened `O_NOFOLLOW|O_NONBLOCK`; must be a regular file of exactly 32 bytes and not group/world-accessible, or the token is treated as unreadable. Its directory is refused if it is a symlink or not owned by you |
 | Local process → IPC socket | `tab(index)` and friends | Index clamped to the valid tab range |
@@ -59,6 +59,15 @@ local ones are the interesting case for a desktop widget.
   call that interpolates one into a request path, and the QML that builds a URL
   for `xdg-open`. An id carrying `?`, `#`, or `../` would otherwise silently
   retarget a token-bearing request or steer the browser.
+- **Remote names cannot trip Qt into rendering markup.** Qt's `Text` defaults to
+  `Text.AutoText`, which parses incoming strings as HTML the moment they contain
+  markup like `<img src="...">`. If a collaborator on a shared budget names a
+  category or budget with an image tag pointing to a loopback or remote host, Qt
+  would trigger network requests to fetch the resource. Every `Text` element
+  across the plugin's QML explicitly pins `textFormat: Text.PlainText`, and
+  labels passed to shared UI kit controls (like `Button`) route through
+  `Model.plainLabel()`, which HTML-escapes markup and safely wraps entities to
+  prevent rich-text execution.
 - **No API data ever reaches a shell.** Every subprocess is spawned with an
   argument list. This matters most for the two right-click notifications (the
   panel's and the bar widget's): the Omarchy bar's `run()` helper executes

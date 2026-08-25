@@ -75,3 +75,26 @@ function sendNotification(quickshell, summary, body) {
     body
   ]);
 }
+
+// Qt's Text -- and every control built on one -- defaults to Text.AutoText,
+// which sniffs the string and renders it as HTML the moment it looks like
+// markup. Every Text this plugin owns pins `textFormat: Text.PlainText`, but
+// the shared kit controls (Ui.Button's label and tooltip) build their own Text
+// internally and expose no way to set the format, so a budget or category named
+// "<img src=x onerror=...>" would be parsed as markup.
+//
+// So neutralize the string before it is handed over. A value with no "<" and
+// no "&" cannot trip Qt's sniffer and passes through untouched -- which is
+// nearly everything. Anything else is HTML-escaped and wrapped in a <span>:
+// the escape means no character can be read as a tag, and the wrapper forces
+// the rich-text path deterministically so those entities are decoded back to
+// the literal characters instead of being shown raw. The white-space rule
+// keeps the spacing plain text would have given.
+function plainLabel(value) {
+  var text = (value === undefined || value === null) ? "" : String(value)
+  if (text.indexOf("<") < 0 && text.indexOf("&") < 0) return text
+  return "<span style=\"white-space:pre-wrap\">"
+    + text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    + "</span>"
+}
+

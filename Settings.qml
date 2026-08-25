@@ -105,6 +105,7 @@ Item {
       RowLayout {
         Layout.fillWidth: true
         Text {
+          textFormat: Text.PlainText
           text: "YNAB Pulse Settings"
           color: root.foreground
           font.family: root.fontFamily
@@ -119,6 +120,7 @@ Item {
       }
 
       Text {
+        textFormat: Text.PlainText
         text: root.statusMsg
         color: root.isError ? Color.urgent : Color.accent
         font.family: root.fontFamily
@@ -134,6 +136,7 @@ Item {
       }
 
       Text {
+        textFormat: Text.PlainText
         text: "Update Personal Access Token:"
         color: root.foreground
         font.family: root.fontFamily

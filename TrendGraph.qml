@@ -47,6 +47,7 @@ Item {
             color: "#10b981"
           }
           Text {
+            textFormat: Text.PlainText
             text: "Income"
             color: Qt.darker(root.foreground, 1.3)
             font.family: root.fontFamily
@@ -63,6 +64,7 @@ Item {
             color: Color.urgent
           }
           Text {
+            textFormat: Text.PlainText
             text: "Spending"
             color: Qt.darker(root.foreground, 1.3)
             font.family: root.fontFamily
@@ -75,6 +77,7 @@ Item {
 
       // Hovered Month Detail Readout
       Text {
+        textFormat: Text.PlainText
         text: {
           if (root.hoveredIndex >= 0 && root.hoveredIndex < root.trends.length) {
             var item = root.trends[root.hoveredIndex]
@@ -158,6 +161,7 @@ Item {
 
               // Month Label
               Text {
+                textFormat: Text.PlainText
                 text: modelData.month_label
                 color: monthBarCol.isHovered ? Color.accent : Qt.darker(root.foreground, 1.4)
                 font.family: root.fontFamily

@@ -48,6 +48,7 @@ Item {
 
         // Dollar Sign ($)
         Text {
+          textFormat: Text.PlainText
           anchors.centerIn: parent
           anchors.verticalCenterOffset: -Math.max(0.5, parent.height * 0.04)
           text: "$"

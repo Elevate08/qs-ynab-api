@@ -101,6 +101,7 @@ Item {
     width: parent.width * 0.55
 
     Text {
+      textFormat: Text.PlainText
       anchors.horizontalCenter: parent.horizontalCenter
       text: root.displaySublabel
       color: root.activeSlice ? Color.accent : Qt.darker(root.foreground, 1.4)
@@ -112,6 +113,7 @@ Item {
     }
 
     Text {
+      textFormat: Text.PlainText
       anchors.horizontalCenter: parent.horizontalCenter
       text: root.displayLabel
       color: root.foreground

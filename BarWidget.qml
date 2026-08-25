@@ -78,6 +78,7 @@ BarWidget {
       }
 
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         visible: panelLoader.item && panelLoader.item.barLabel !== "" && root.setting("showAgeOfMoneyInBar", true)
         text: panelLoader.item ? panelLoader.item.barLabel : ""

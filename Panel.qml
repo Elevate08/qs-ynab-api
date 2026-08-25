@@ -496,6 +496,7 @@ Panel {
             RowLayout {
               spacing: Style.space(4)
               Text {
+                textFormat: Text.PlainText
                 text: root.iconGlyph
                 color: Color.accent
                 font.family: root.fontFamily
@@ -504,6 +505,7 @@ Panel {
               }
 
               Text {
+                textFormat: Text.PlainText
                 text: "YNAB Pulse"
                 color: root.foreground
                 font.family: root.fontFamily
@@ -517,7 +519,7 @@ Panel {
             // Budget Switcher Dropdown Button
             Button {
               visible: root.authenticated && root.overviewData && root.overviewData.budgets && root.overviewData.budgets.length > 1
-              text: (root.overviewData && root.overviewData.active_budget_name ? root.overviewData.active_budget_name : "Budget") + " 󰁥"
+              text: Model.plainLabel((root.overviewData && root.overviewData.active_budget_name ? root.overviewData.active_budget_name : "Budget") + " 󰁥")
               tooltipText: "Switch Budget (Alt+M)"
               selected: root.showBudgetSelector
               onClicked: root.showBudgetSelector = !root.showBudgetSelector
@@ -567,6 +569,7 @@ Panel {
               spacing: Style.space(6)
 
               Text {
+                textFormat: Text.PlainText
                 text: "Select YNAB Budget:"
                 color: root.foreground
                 font.family: root.fontFamily
@@ -580,7 +583,7 @@ Panel {
                 delegate: Button {
                   Layout.fillWidth: true
                   leftAlign: true
-                  text: modelData.name + (modelData.id === (root.overviewData ? root.overviewData.active_budget_id : "") ? "  ✓ (Active)" : "")
+                  text: Model.plainLabel(modelData.name + (modelData.id === (root.overviewData ? root.overviewData.active_budget_id : "") ? "  ✓ (Active)" : ""))
                   selected: modelData.id === (root.overviewData ? root.overviewData.active_budget_id : "")
                   onClicked: root.selectBudget(modelData.id)
                 }
@@ -599,6 +602,7 @@ Panel {
 
             Text {
               id: errorText
+              textFormat: Text.PlainText
               anchors.fill: parent
               anchors.margins: Style.space(6)
               text: root.statusError
@@ -629,6 +633,7 @@ Panel {
                 spacing: Style.space(12)
 
                 Text {
+                  textFormat: Text.PlainText
                   text: "Connect your YNAB Account"
                   color: root.foreground
                   font.family: root.fontFamily
@@ -637,6 +642,7 @@ Panel {
                 }
 
                 Text {
+                  textFormat: Text.PlainText
                   text: "To display your budget buckets, age of money, and spending charts, please generate a Personal Access Token from your YNAB Developer Settings."
                   color: Qt.darker(root.foreground, 1.4)
                   font.family: root.fontFamily
@@ -654,6 +660,7 @@ Panel {
                 PanelSeparator { Layout.fillWidth: true }
 
                 Text {
+                  textFormat: Text.PlainText
                   text: "Personal Access Token:"
                   color: root.foreground
                   font.family: root.fontFamily
@@ -711,6 +718,7 @@ Panel {
 
                 // Top Settings Title
                 Text {
+                  textFormat: Text.PlainText
                   text: "YNAB Pulse Settings"
                   color: root.foreground
                   font.family: root.fontFamily
@@ -737,6 +745,7 @@ Panel {
                     spacing: Style.space(8)
 
                     Text {
+                      textFormat: Text.PlainText
                       text: "Active Budget"
                       color: root.foreground
                       font.family: root.fontFamily
@@ -745,6 +754,7 @@ Panel {
                     }
 
                     Text {
+                      textFormat: Text.PlainText
                       text: "Choose which YNAB budget is tracked in your status bar and overview."
                       color: Qt.darker(root.foreground, 1.4)
                       font.family: root.fontFamily
@@ -756,7 +766,7 @@ Panel {
                     Button {
                       width: parent.width
                       leftAlign: true
-                      text: (root.overviewData && root.overviewData.active_budget_name ? root.overviewData.active_budget_name : "Select Budget") + "  " + (root.showSettingsBudgetDropdown ? "󰅀" : "󰅂")
+                      text: Model.plainLabel((root.overviewData && root.overviewData.active_budget_name ? root.overviewData.active_budget_name : "Select Budget") + "  " + (root.showSettingsBudgetDropdown ? "󰅀" : "󰅂"))
                       selected: root.showSettingsBudgetDropdown
                       onClicked: root.showSettingsBudgetDropdown = !root.showSettingsBudgetDropdown
                     }
@@ -772,7 +782,7 @@ Panel {
                         delegate: Button {
                           width: parent.width
                           leftAlign: true
-                          text: modelData.name + (modelData.id === (root.overviewData ? root.overviewData.active_budget_id : "") ? "  ✓" : "")
+                          text: Model.plainLabel(modelData.name + (modelData.id === (root.overviewData ? root.overviewData.active_budget_id : "") ? "  ✓" : ""))
                           selected: modelData.id === (root.overviewData ? root.overviewData.active_budget_id : "")
                           onClicked: {
                             root.selectBudget(modelData.id)
@@ -804,6 +814,7 @@ Panel {
                       width: parent.width
 
                       Text {
+                        textFormat: Text.PlainText
                         text: "Background Refresh"
                         color: root.foreground
                         font.family: root.fontFamily
@@ -813,6 +824,7 @@ Panel {
                       }
 
                       Text {
+                        textFormat: Text.PlainText
                         text: root.runtimeRefreshHours + " hour" + (root.runtimeRefreshHours === 1 ? "" : "s") + (root.runtimeRefreshHours === 24 ? " (1 day)" : (root.runtimeRefreshHours === 48 ? " (2 days)" : (root.runtimeRefreshHours === 72 ? " (3 days)" : "")))
                         color: Color.accent
                         font.family: root.fontFamily
@@ -822,6 +834,7 @@ Panel {
                     }
 
                     Text {
+                      textFormat: Text.PlainText
                       text: "Frequency at which YNAB Pulse fetches updated balances in the background (configured in hours)."
                       color: Qt.darker(root.foreground, 1.4)
                       font.family: root.fontFamily
@@ -846,6 +859,7 @@ Panel {
                       width: parent.width
 
                       Text {
+                        textFormat: Text.PlainText
                         text: "1 hour (Frequent)"
                         color: Qt.darker(root.foreground, 1.5)
                         font.family: root.fontFamily
@@ -855,6 +869,7 @@ Panel {
                       Item { Layout.fillWidth: true }
 
                       Text {
+                        textFormat: Text.PlainText
                         text: "72 hours (3 Days)"
                         color: Qt.darker(root.foreground, 1.5)
                         font.family: root.fontFamily
@@ -881,6 +896,7 @@ Panel {
                     spacing: Style.space(8)
 
                     Text {
+                      textFormat: Text.PlainText
                       text: "YNAB API Token & Security"
                       color: root.foreground
                       font.family: root.fontFamily
@@ -889,6 +905,7 @@ Panel {
                     }
 
                     Text {
+                      textFormat: Text.PlainText
                       text: "Your token is encrypted with a key held on this machine, then stored in your Linux Secret Service keyring."
                       color: Qt.darker(root.foreground, 1.4)
                       font.family: root.fontFamily
@@ -943,6 +960,7 @@ Panel {
                         anchors.fill: parent
 
                         Text {
+                          textFormat: Text.PlainText
                           text: "󰋖 Help & Keyboard Shortcuts"
                           color: root.foreground
                           font.family: root.fontFamily
@@ -952,6 +970,7 @@ Panel {
                         }
 
                         Text {
+                          textFormat: Text.PlainText
                           text: root.showShortcutsHelp ? "󰅀" : "󰅂"
                           color: Color.accent
                           font.family: root.fontFamily
@@ -967,6 +986,7 @@ Panel {
                       spacing: Style.space(4)
 
                       Text {
+                        textFormat: Text.PlainText
                         text: "• Alt+1 / Alt+B : Switch to Buckets tab\n• Alt+2 / Alt+I : Switch to Income & Age tab\n• Alt+3 / Alt+P : Switch to Spending Analysis tab\n• Alt+M         : Open Budget Switcher dropdown\n• Alt+R         : Force refresh data from YNAB\n• Alt+W         : Open YNAB web app in browser\n• Alt+S / Esc   : Toggle / exit settings\n• Esc           : Close panel popup"
                         color: Qt.darker(root.foreground, 1.4)
                         font.family: root.fontFamily
@@ -1024,6 +1044,7 @@ Panel {
                     spacing: Style.space(10)
 
                     Text {
+                      textFormat: Text.PlainText
                       text: root.overviewData && root.overviewData.ready_to_assign_status === "negative" ? "󰀦" : root.iconGlyph
                       color: root.overviewData && root.overviewData.ready_to_assign_status === "positive"
                         ? "#10b981"
@@ -1040,6 +1061,7 @@ Panel {
                       spacing: Style.space(2)
 
                       Text {
+                        textFormat: Text.PlainText
                         text: root.overviewData && root.overviewData.ready_to_assign_status === "negative"
                           ? "Over-Assigned Funds"
                           : "Ready to Assign"
@@ -1050,6 +1072,7 @@ Panel {
                       }
 
                       Text {
+                        textFormat: Text.PlainText
                         text: root.overviewData && root.overviewData.ready_to_assign_status === "positive"
                           ? "Give every dollar a job"
                           : (root.overviewData && root.overviewData.ready_to_assign_status === "negative"
@@ -1062,6 +1085,7 @@ Panel {
                     }
 
                     Text {
+                      textFormat: Text.PlainText
                       text: root.overviewData ? root.overviewData.ready_to_assign_formatted : "$0.00"
                       color: root.overviewData && root.overviewData.ready_to_assign_status === "positive"
                         ? "#10b981"
@@ -1101,6 +1125,7 @@ Panel {
                         spacing: Style.space(6)
 
                         Text {
+                          textFormat: Text.PlainText
                           text: "󰄬"
                           color: Color.accent
                           font.family: root.fontFamily
@@ -1110,6 +1135,7 @@ Panel {
                         }
 
                         Text {
+                          textFormat: Text.PlainText
                           text: (root.overviewData ? root.overviewData.unapproved_transactions_count : 0) + " to review"
                           color: Color.accent
                           font.family: root.fontFamily
@@ -1120,6 +1146,7 @@ Panel {
                         }
 
                         Text {
+                          textFormat: Text.PlainText
                           text: "Open 󰖟"
                           color: Qt.darker(Color.accent, 1.2)
                           font.family: root.fontFamily
@@ -1146,6 +1173,7 @@ Panel {
                       spacing: Style.space(6)
 
                       Text {
+                        textFormat: Text.PlainText
                         text: "󰀦"
                         color: root.urgent
                         font.family: root.fontFamily
@@ -1155,6 +1183,7 @@ Panel {
                       }
 
                       Text {
+                        textFormat: Text.PlainText
                         text: (root.overviewData ? root.overviewData.overspent_categories_count : 0) + " category overspent"
                         color: root.urgent
                         font.family: root.fontFamily
@@ -1173,6 +1202,7 @@ Panel {
                   spacing: Style.space(6)
 
                   Text {
+                    textFormat: Text.PlainText
                     text: "Category Buckets"
                     color: root.foreground
                     font.family: root.fontFamily
@@ -1228,6 +1258,7 @@ Panel {
                               spacing: Style.space(6)
 
                               Text {
+                                textFormat: Text.PlainText
                                 text: root.collapsedGroups[modelData.id] ? "󰅂" : "󰅀"
                                 color: Color.accent
                                 font.family: root.fontFamily
@@ -1237,6 +1268,7 @@ Panel {
                               }
 
                               Text {
+                                textFormat: Text.PlainText
                                 text: modelData.name + " (" + modelData.categories.length + ")"
                                 color: root.foreground
                                 font.family: root.fontFamily
@@ -1248,6 +1280,7 @@ Panel {
                               }
 
                               Text {
+                                textFormat: Text.PlainText
                                 text: modelData.balance_formatted
                                 color: root.foreground
                                 font.family: root.fontFamily
@@ -1292,6 +1325,7 @@ Panel {
                                     Layout.fillWidth: true
 
                                     Text {
+                                      textFormat: Text.PlainText
                                       text: (modelData.is_overspent ? "󰀦 " : "") + modelData.name
                                       color: modelData.is_overspent ? root.urgent : root.foreground
                                       font.family: root.fontFamily
@@ -1303,6 +1337,7 @@ Panel {
                                     }
 
                                     Text {
+                                      textFormat: Text.PlainText
                                       text: modelData.is_overspent
                                         ? "Overspent: " + modelData.balance_formatted
                                         : modelData.balance_formatted
@@ -1365,6 +1400,7 @@ Panel {
                         Layout.fillWidth: true
 
                         Text {
+                          textFormat: Text.PlainText
                           text: "Age of Money"
                           color: Qt.darker(root.foreground, 1.3)
                           font.family: root.fontFamily
@@ -1375,6 +1411,7 @@ Panel {
                         Item { Layout.fillWidth: true }
 
                         Text {
+                          textFormat: Text.PlainText
                           text: root.overviewData && root.overviewData.age_of_money ? root.overviewData.age_of_money.status.toUpperCase() : ""
                           color: Color.accent
                           font.family: root.fontFamily
@@ -1384,6 +1421,7 @@ Panel {
                       }
 
                       Text {
+                        textFormat: Text.PlainText
                         text: root.overviewData && root.overviewData.age_of_money ? Model.formatAgeOfMoney(root.overviewData.age_of_money.days) : "--"
                         color: root.foreground
                         font.family: root.fontFamily
@@ -1392,6 +1430,7 @@ Panel {
                       }
 
                       Text {
+                        textFormat: Text.PlainText
                         text: root.overviewData && root.overviewData.age_of_money ? root.overviewData.age_of_money.label : ""
                         color: Qt.darker(root.foreground, 1.4)
                         font.family: root.fontFamily
@@ -1415,6 +1454,7 @@ Panel {
                       spacing: Style.space(10)
 
                       Text {
+                        textFormat: Text.PlainText
                         text: "Income vs. Spending (Current Month)"
                         color: root.foreground
                         font.family: root.fontFamily
@@ -1428,12 +1468,14 @@ Panel {
                         ColumnLayout {
                           Layout.fillWidth: true
                           Text {
+                            textFormat: Text.PlainText
                             text: "Total Inflow (Income)"
                             color: Qt.darker(root.foreground, 1.4)
                             font.family: root.fontFamily
                             font.pixelSize: Style.font.caption
                           }
                           Text {
+                            textFormat: Text.PlainText
                             text: root.overviewData && root.overviewData.income_vs_spending ? root.overviewData.income_vs_spending.income_formatted : "$0.00"
                             color: "#10b981"
                             font.family: root.fontFamily
@@ -1445,12 +1487,14 @@ Panel {
                         ColumnLayout {
                           Layout.fillWidth: true
                           Text {
+                            textFormat: Text.PlainText
                             text: "Total Outflow (Spending)"
                             color: Qt.darker(root.foreground, 1.4)
                             font.family: root.fontFamily
                             font.pixelSize: Style.font.caption
                           }
                           Text {
+                            textFormat: Text.PlainText
                             text: root.overviewData && root.overviewData.income_vs_spending ? root.overviewData.income_vs_spending.spending_formatted : "$0.00"
                             color: root.urgent
                             font.family: root.fontFamily
@@ -1466,6 +1510,7 @@ Panel {
                         Layout.fillWidth: true
 
                         Text {
+                          textFormat: Text.PlainText
                           text: "Net Savings:"
                           color: root.foreground
                           font.family: root.fontFamily
@@ -1476,6 +1521,7 @@ Panel {
                         Item { Layout.fillWidth: true }
 
                         Text {
+                          textFormat: Text.PlainText
                           text: root.overviewData && root.overviewData.income_vs_spending ? root.overviewData.income_vs_spending.net_formatted : "$0.00"
                           color: root.overviewData && root.overviewData.income_vs_spending && root.overviewData.income_vs_spending.is_positive ? "#10b981" : root.urgent
                           font.family: root.fontFamily
@@ -1488,6 +1534,7 @@ Panel {
                         Layout.fillWidth: true
 
                         Text {
+                          textFormat: Text.PlainText
                           text: "Savings Rate:"
                           color: Qt.darker(root.foreground, 1.4)
                           font.family: root.fontFamily
@@ -1497,6 +1544,7 @@ Panel {
                         Item { Layout.fillWidth: true }
 
                         Text {
+                          textFormat: Text.PlainText
                           text: (root.overviewData && root.overviewData.income_vs_spending ? root.overviewData.income_vs_spending.savings_rate_percent : 0) + "%"
                           color: Color.accent
                           font.family: root.fontFamily
@@ -1522,6 +1570,7 @@ Panel {
                       spacing: Style.space(8)
 
                       Text {
+                        textFormat: Text.PlainText
                         text: "Income vs. Expenses Trend"
                         color: root.foreground
                         font.family: root.fontFamily
@@ -1606,6 +1655,7 @@ Panel {
                           }
 
                           Text {
+                            textFormat: Text.PlainText
                             text: root.selectedSpendingGroup ? root.selectedSpendingGroup.name : ""
                             color: root.foreground
                             font.family: root.fontFamily
@@ -1616,6 +1666,7 @@ Panel {
                           }
 
                           Text {
+                            textFormat: Text.PlainText
                             text: root.selectedSpendingGroup ? root.selectedSpendingGroup.activity_formatted : ""
                             color: Color.urgent
                             font.family: root.fontFamily
@@ -1646,6 +1697,7 @@ Panel {
                               Layout.fillWidth: true
 
                               Text {
+                                textFormat: Text.PlainText
                                 text: modelData.name
                                 color: root.foreground
                                 font.family: root.fontFamily
@@ -1656,6 +1708,7 @@ Panel {
                               }
 
                               Text {
+                                textFormat: Text.PlainText
                                 text: "Spent: " + modelData.activity_formatted
                                 color: Color.urgent
                                 font.family: root.fontFamily
@@ -1668,6 +1721,7 @@ Panel {
                               Layout.fillWidth: true
 
                               Text {
+                                textFormat: Text.PlainText
                                 text: "Budgeted: " + modelData.budgeted_formatted
                                 color: Qt.darker(root.foreground, 1.4)
                                 font.family: root.fontFamily
@@ -1677,6 +1731,7 @@ Panel {
                               Item { Layout.fillWidth: true }
 
                               Text {
+                                textFormat: Text.PlainText
                                 text: "Balance: " + modelData.balance_formatted
                                 color: Model.getStatusBadgeColor(modelData.status_color, Color)
                                 font.family: root.fontFamily
@@ -1731,6 +1786,7 @@ Panel {
                               }
 
                               Text {
+                                textFormat: Text.PlainText
                                 text: modelData.group_name
                                 color: root.foreground
                                 font.family: root.fontFamily
@@ -1741,6 +1797,7 @@ Panel {
                               }
 
                               Text {
+                                textFormat: Text.PlainText
                                 text: modelData.percentage + "%"
                                 color: Qt.darker(root.foreground, 1.4)
                                 font.family: root.fontFamily
@@ -1748,6 +1805,7 @@ Panel {
                               }
 
                               Text {
+                                textFormat: Text.PlainText
                                 text: modelData.amount_formatted
                                 color: root.foreground
                                 font.family: root.fontFamily
@@ -1756,6 +1814,7 @@ Panel {
                               }
 
                               Text {
+                                textFormat: Text.PlainText
                                 text: "󰅂"
                                 color: Qt.darker(root.foreground, 1.5)
                                 font.family: root.fontFamily
