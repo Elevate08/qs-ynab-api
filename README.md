@@ -70,25 +70,66 @@ All navigation and actions can be operated entirely via keyboard with the `Alt` 
    correct plugin ID, and enables the widget. Choose the right bar section if
    prompted; the plugin also declares `right` as its default placement.
 
-2. **Build the Backend Helper**:
-   ```bash
-   cd ~/.config/omarchy/plugins/io.github.elevate08.ynab-glance
-   ./build.sh
-   ```
-   Needs a Rust toolchain and the D-Bus development headers (`dbus` on Arch,
-   `libdbus-1-dev` on Debian/Ubuntu) - the helper talks to the Secret Service
-   over D-Bus to store your token. A running Secret Service provider (GNOME
-   Keyring, KWallet, KeePassXC) must be available at runtime.
+   That single command is all it takes: the Rust helper (`bin/ynab-cli`) is
+   prebuilt by this repository's CI and ships inside the plugin, so no toolchain
+   is required on your machine. Plugin updates deliver new helper builds the
+   same way.
 
-3. **Connect your YNAB Account**:
+2. **Connect your YNAB Account**:
    - Generate a Personal Access Token in [YNAB Account Settings > Developer](https://app.ynab.com/settings/developer).
    - Click the bar widget, paste your token, and click **Save & Connect**.
 
    To set the token from a terminal instead, pipe it in — it is deliberately not
    accepted as an argument, so it stays out of `/proc` and your shell history:
    ```bash
+   cd ~/.config/omarchy/plugins/io.github.elevate08.ynab-glance
    ./bin/ynab-cli auth set < /path/to/token.txt   # or: pass show ynab | ./bin/ynab-cli auth set
    ```
+
+---
+
+## Building or verifying the helper
+
+Every `bin/ynab-cli` in this repository is produced by GitHub Actions:
+`ci.yml` compiles it from source and commits it to `main`
+(`ci: bundle ynab-cli ... [skip ci]`), and tagged releases attach their own
+build plus `SHA256SUMS`. Nothing is ever uploaded by hand. If you would rather
+not take that on faith:
+
+**Verify what you have**
+
+```bash
+PLUGIN=~/.config/omarchy/plugins/io.github.elevate08.ynab-glance
+
+# Sigstore provenance: was this exact byte stream built by CI from this repo?
+gh attestation verify "$PLUGIN/bin/ynab-cli" --repo Elevate08/qs-ynab-api
+
+# Checksum: compare against SHA256SUMS on the latest release page.
+sha256sum "$PLUGIN/bin/ynab-cli"
+```
+
+**Build it yourself**
+
+```bash
+cd ~/.config/omarchy/plugins/io.github.elevate08.ynab-glance
+./build.sh
+```
+
+Needs a Rust toolchain and the D-Bus development headers (`dbus` on Arch,
+`libdbus-1-dev` on Debian/Ubuntu) - the helper talks to the Secret Service
+over D-Bus to store your token. A running Secret Service provider (GNOME
+Keyring, KWallet, KeePassXC) must be available at runtime.
+
+Two notes for the source-build route:
+
+- Your build replaces the CI one until you restore it with
+  `git restore bin/ynab-cli`.
+- A locally modified `bin/ynab-cli` blocks `omarchy plugin update`
+  (fast-forward merges refuse dirty trees) - run `git restore bin/ynab-cli`
+  first, or remove your build and let the update bring the fresh CI bundle.
+
+See [SECURITY.md](SECURITY.md) for the full trust discussion behind shipping a
+prebuilt helper.
 
 ---
 

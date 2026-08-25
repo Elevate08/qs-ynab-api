@@ -3,17 +3,44 @@ name: CI
 on:
   push:
     branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/ci.yml'
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+# Read-only by default: only the backend job publishes anything, and it asks
+# for the extra scopes itself.
+permissions:
+  contents: read
+
+# Serialize runs per ref so two pushes cannot race on the bundled-binary commit.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   backend:
     name: Backend Tests & Build
     runs-on: ubuntu-latest
 
+    # contents:write lets this job commit the freshly built helper back to main
+    # as the plugin's bundled binary; id-token + attestations let it sign that
+    # binary with build provenance so users can verify where it came from. The
+    # audit job below needs none of this and does not inherit it.
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        # Full history: the bundle step rebases its commit onto whatever landed
+        # on main while this run was building.
+        with:
+          fetch-depth: 0
 
       - name: Install system dependencies
         run: |
@@ -36,6 +63,63 @@ jobs:
 
       - name: Build backend binary
         run: cargo build --manifest-path backend/Cargo.toml --release
+
+      # Everything below ships the built helper into the repo itself, so it
+      # only runs where that result is published - never on PRs, whose builds
+      # exist purely to validate. bin/ynab-cli stays in .gitignore locally;
+      # CI force-adds it, which keeps "every byte was born here" true by
+      # construction rather than by discipline.
+      - name: Smoke-test binary
+        if: github.event_name != 'pull_request'
+        run: |
+          ./backend/target/release/ynab-cli --help >/dev/null
+          ./backend/target/release/ynab-cli --version
+
+      - name: Stage binary under bin/
+        if: github.event_name != 'pull_request'
+        run: |
+          mkdir -p bin
+          cp backend/target/release/ynab-cli bin/ynab-cli
+          chmod +x bin/ynab-cli
+
+      # Blocking on purpose. README.md and SECURITY.md both tell users to run
+      # `gh attestation verify` against the binary they installed; a bundle
+      # pushed without an attestation would make that instruction report the
+      # binary as unverifiable, which reads as tampering. Better to fail here
+      # than to publish a binary the docs cannot back up.
+      - name: Attest build provenance
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: bin/ynab-cli
+
+      - name: Commit bundled binary to main
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          git config user.name "omarchy-ci-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -f bin/ynab-cli
+          if git diff --cached --quiet; then
+            echo "bin/ynab-cli already matches this build; nothing to bundle"
+            exit 0
+          fi
+          git commit -m "ci: bundle ynab-cli from ${GITHUB_SHA::7} [skip ci]"
+          git pull --rebase origin "$GITHUB_REF_NAME"
+
+          # SECURITY.md tells users this commit names the exact source the
+          # binary was compiled from. A rebase over commits that landed
+          # mid-build would leave that claim false - the message would cite one
+          # source while the parent commit is another. Refuse to push rather
+          # than publish a binary that misstates where it came from; re-running
+          # the workflow on the new head produces an honest bundle.
+          parent="$(git rev-parse HEAD^)"
+          if [ "$parent" != "$GITHUB_SHA" ]; then
+            echo "::error::main moved from ${GITHUB_SHA::7} to ${parent::7} while this build ran. Not bundling a binary whose commit message would misstate its source - re-run CI on the new head."
+            exit 1
+          fi
+
+          git push origin HEAD:"$GITHUB_REF_NAME"
 
   audit:
     name: Dependency Advisories

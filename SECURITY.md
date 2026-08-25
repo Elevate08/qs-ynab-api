@@ -119,6 +119,48 @@ those requires you to be present when the token is read, which a bar widget
 that refreshes on a timer cannot ask for. That trade - unattended refresh over
 a stronger key boundary - is the deliberate choice this plugin makes.
 
+## The bundled prebuilt helper
+
+The plugin ships `bin/ynab-cli` as a compiled binary inside the repository,
+which deserves an honest accounting of what you are being asked to trust.
+
+**The repository is already the trust anchor.** Installing this plugin runs
+arbitrary, unsandboxed QML from this repo inside your long-lived
+omarchy-shell process - `omarchy plugin add` prints exactly that warning
+before cloning. Code in `Panel.qml` handles your token end to end: it reads
+it from the settings UI, pipes it to the helper, and renders whatever the
+helper reports. Anyone in a position to swap a malicious binary into this
+repo can equally commit a malicious `Panel.qml`, so the prebuilt helper does
+not create a new trust requirement - the repo itself was always the thing
+you were trusting.
+
+**The binary is only ever born in CI.** `bin/ynab-cli` stays listed in
+`.gitignore`, and the only commits that touch it are made by this repo's
+GitHub Actions workflow after clippy, tests, and a smoke test pass on the
+exact source commit named in the commit message (`ci: bundle ynab-cli
+<sha>`). Hand-uploaded binaries are excluded by construction rather than by
+policy. Tagged releases go through the same pipeline plus packaging and
+checksums.
+
+**You can verify what actually landed on your disk:**
+
+```bash
+PLUGIN=~/.config/omarchy/plugins/io.github.elevate08.ynab-glance
+
+# Sigstore build provenance, anchored to this repo's OIDC identity:
+gh attestation verify "$PLUGIN/bin/ynab-cli" --repo Elevate08/qs-ynab-api
+
+# Byte-for-byte comparison against a tagged release's artifacts:
+sha256sum "$PLUGIN/bin/ynab-cli"   # vs SHA256SUMS on the release page
+```
+
+**The source-build escape hatch remains.** If you would rather compile the
+code you audited than audit the bytes you downloaded, `./build.sh` in the
+plugin directory rebuilds the helper from the checkout in front of you;
+`git restore bin/ynab-cli` returns to the CI-built version. The committed
+`Cargo.lock` pins dependencies for both paths, and CI runs `cargo audit`
+against it.
+
 ## Data handling
 
 - Financial data is cached locally and never leaves the machine except in

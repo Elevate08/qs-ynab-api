@@ -22,6 +22,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        # Full history: the step below asks how this tag relates to main.
+        with:
+          fetch-depth: 0
 
       - name: Install system dependencies
         run: |
@@ -53,47 +56,59 @@ jobs:
           ./bin/ynab-cli --help
           ./bin/ynab-cli --version
 
-      - name: Package plugin bundle
+      # Advisory only: installs clone main, releases are built from tags, and
+      # the two drift when a tag is cut before CI has bundled the same source.
+      #
+      # This deliberately does not compare the two binaries byte for byte. Two
+      # independent builds of identical source rarely produce identical bytes -
+      # runner images and toolchains move - so that check would warn on almost
+      # every release and be tuned out within a month. What has to hold is a
+      # relationship between commits, so that is what is checked: main contains
+      # this tag, and the helper main bundles was built from this tag or later.
+      - name: Check the tag against what main has bundled
+        if: startsWith(github.ref, 'refs/tags/')
         run: |
           set -euo pipefail
-          VERSION="${{ github.ref_name }}"
-          if [ -z "$VERSION" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="manual"
+          git fetch origin main
+
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::warning::${GITHUB_SHA::7} is not on main. Users install by cloning main, so this release would ship code they never receive."
+            exit 0
           fi
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
-          # Staged under the plugin id so the archive extracts into a single
-          # directory - the one Omarchy expects in ~/.config/omarchy/plugins -
-          # instead of scattering files across the user's working directory.
-          PLUGIN_ID="io.github.elevate08.ynab-glance"
-          mkdir -p "stage/$PLUGIN_ID/bin"
-          cp manifest.json *.qml *.js README.md LICENSE SECURITY.md preview.png "stage/$PLUGIN_ID/"
-          cp bin/ynab-cli "stage/$PLUGIN_ID/bin/ynab-cli"
-          chmod +x "stage/$PLUGIN_ID/bin/ynab-cli"
+          if ! git cat-file -e origin/main:bin/ynab-cli 2>/dev/null; then
+            echo "::warning::main does not bundle bin/ynab-cli yet; CI adds it on the next backend change"
+            exit 0
+          fi
 
-          tar -czf "ynab-pulse-${VERSION}-x86_64-linux.tar.gz" -C stage "$PLUGIN_ID"
-          (cd stage && zip -qr "../ynab-pulse-${VERSION}-x86_64-linux.zip" "$PLUGIN_ID")
+          bundle_commit="$(git log -1 --format=%H origin/main -- bin/ynab-cli)"
+          if git merge-base --is-ancestor "$GITHUB_SHA" "$bundle_commit"; then
+            echo "main bundles a helper built at ${bundle_commit::7}, which contains this tag"
+          else
+            echo "::warning::main's bundled helper (${bundle_commit::7}) predates this tag, so installs will run an older helper than this release. Let CI re-bundle main before announcing it."
+          fi
 
-      - name: Generate checksums
+      # No plugin archive is published. The supported install is
+      # `omarchy plugin add <repo url>`, which clones main - an archive would
+      # be a second, unversioned way to get the plugin that nothing in the
+      # docs points at and that silently stops receiving updates. A release
+      # exists to give the helper binary a checksum and an attestation, which
+      # is what README.md and SECURITY.md actually send people to.
+      - name: Generate checksum
         run: |
           set -euo pipefail
-          sha256sum \
-            bin/ynab-cli \
-            "ynab-pulse-${VERSION}-x86_64-linux.tar.gz" \
-            "ynab-pulse-${VERSION}-x86_64-linux.zip" \
-            > SHA256SUMS
+          sha256sum bin/ynab-cli > SHA256SUMS
           cat SHA256SUMS
 
-      # Non-blocking: attestation needs a public repo (or GHAS). A failure here
-      # should not withhold a release that is otherwise good.
+      # Blocking, to match ci.yml. SECURITY.md points users at
+      # `gh attestation verify` as the answer to "was this binary really built
+      # here?"; a release published without one turns that instruction into a
+      # report of unverifiable bytes, which is worse than no release at all.
+      # Needs the repository to be public (or to have GHAS enabled).
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v2
-        continue-on-error: true
         with:
-          subject-path: |
-            bin/ynab-cli
-            ynab-pulse-*-x86_64-linux.tar.gz
-            ynab-pulse-*-x86_64-linux.zip
+          subject-path: bin/ynab-cli
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -107,7 +122,5 @@ jobs:
         with:
           files: |
             bin/ynab-cli
-            ynab-pulse-*-x86_64-linux.tar.gz
-            ynab-pulse-*-x86_64-linux.zip
             SHA256SUMS
           generate_release_notes: true
