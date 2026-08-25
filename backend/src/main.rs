@@ -3,6 +3,7 @@ mod api;
 mod auth;
 mod cache;
 mod crypto;
+mod hardening;
 mod models;
 mod notify;
 mod storage;
@@ -62,6 +63,9 @@ enum AuthCommands {
 }
 
 fn main() {
+    // First, before a token can reach memory: see hardening.rs.
+    hardening::forbid_memory_disclosure();
+
     let cli = Cli::parse();
 
     match cli.command {

@@ -21,5 +21,11 @@ getrandom = "0.4"
 opt-level = 3
 lto = true
 codegen-units = 1
-panic = "abort"
 strip = true
+
+# Deliberately no `panic = "abort"`. Aborting skips every destructor, which
+# means the `Zeroizing` wrappers guarding the Personal Access Token never wipe
+# it, and SIGABRT is a core-dumping signal - so a panic would be the one path
+# that writes the token to disk in the clear. Unwinding runs those wipes and
+# lets main.rs report a panicking worker thread as an ordinary failure. See
+# hardening.rs for the belt-and-braces side of this.
