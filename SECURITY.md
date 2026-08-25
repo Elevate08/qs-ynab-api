@@ -79,9 +79,20 @@ local ones are the interesting case for a desktop widget.
 - **Upstream cannot exhaust the machine.** Response bodies are refused above
   16 MiB (checked against `content-length` and again on a short read, so a
   chunked body that lies about its size is still caught), and the number of
-  category groups, categories, and pie slices turned into panel content is
-  capped — an unbounded response would otherwise make the shell build delegates
-  until the bar hangs.
+  budgets, category groups, categories, and pie slices turned into panel
+  content is capped — an unbounded response would otherwise make the shell
+  build delegates until the bar hangs. The size limit alone is not the
+  backstop it looks like: the panel nests a category `Repeater` inside a group
+  `Repeater`, both build every delegate up front and keep it alive, so the
+  objects a payload costs are the *product* of the two lists. Tens of thousands
+  of them fit comfortably inside 16 MiB of JSON. Because a collaborator on a
+  shared budget decides how many groups and categories it contains, that
+  product is capped directly rather than only per list — at most 500 categories
+  across all groups, however they are distributed. The caps are applied twice:
+  in the helper, which decides what the panel is sent, and again in
+  `Model.boundOverview()`, the single point every payload passes through before
+  the panel binds it, so a cache written by an older build or a helper whose
+  caps were loosened still cannot hand a `Repeater` an unbounded list.
 - **The cache cannot be swapped out from under the read.** The file is opened
   with `O_NOFOLLOW` and `O_NONBLOCK` and then inspected through the resulting
   descriptor, so a symlink planted in its place is refused by the kernel, a

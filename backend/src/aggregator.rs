@@ -14,9 +14,28 @@ const MAX_DECIMAL_DIGITS: u32 = 8;
 /// budgets are far below these; the caps exist so a hostile or corrupted
 /// response cannot make the shell build an unbounded number of delegates and
 /// hang the whole desktop bar.
-const MAX_GROUPS: usize = 200;
-const MAX_CATEGORIES_PER_GROUP: usize = 500;
+///
+/// Per-list caps alone are not enough. The panel nests a category `Repeater`
+/// inside a group `Repeater`, and both build every delegate eagerly, so the
+/// work the shell does is the *product* of the two caps, not their sum: a cap
+/// pair of 200 x 500 authorizes a hundred thousand long-lived shell objects
+/// from a response comfortably under the 16 MiB transport limit - small enough
+/// to arrive, large enough to hang the bar. A collaborator on a shared budget
+/// controls how many groups and categories it contains, so that product has to
+/// be bounded directly: `MAX_TOTAL_CATEGORIES` is the number that decides
+/// whether the shell stays responsive, and the per-list caps only shape how
+/// that budget is spent.
+const MAX_BUDGETS: usize = 50;
+const MAX_GROUPS: usize = 50;
+const MAX_CATEGORIES_PER_GROUP: usize = 100;
+const MAX_TOTAL_CATEGORIES: usize = 500;
 const MAX_PIE_SLICES: usize = 50;
+/// How far the trend graph looks back. Also a cap: `months_history` is remote
+/// input, and every month past the sixth is a bar the graph has no room for.
+const MAX_TREND_MONTHS: usize = 6;
+/// The whole point of the total cap, enforced at compile time: it has to bind
+/// before the per-list caps multiply, or it is decoration.
+const _: () = assert!(MAX_TOTAL_CATEGORIES < MAX_GROUPS * MAX_CATEGORIES_PER_GROUP);
 /// A month label is "Aug". Anything the API sends that is not a month we know
 /// still has to fit where "Aug" goes.
 const MAX_MONTH_LABEL_CHARS: usize = 8;
@@ -206,7 +225,7 @@ pub fn aggregate_monthly_trends(
     valid_months.sort_by(|a, b| a.month.cmp(&b.month));
 
     let count = valid_months.len();
-    let start_idx = count.saturating_sub(6);
+    let start_idx = count.saturating_sub(MAX_TREND_MONTHS);
     let slice = &valid_months[start_idx..];
 
     slice
@@ -255,6 +274,7 @@ pub fn build_overview_payload(
 
     let budget_list: Vec<BudgetSelectionItem> = budgets
         .iter()
+        .take(MAX_BUDGETS)
         .map(|b| BudgetSelectionItem {
             id: b.id.clone(),
             name: b.name.clone(),
@@ -282,9 +302,10 @@ pub fn build_overview_payload(
     let mut pie_slices_raw = Vec::new();
     let mut total_spending_milli: i64 = 0;
     let mut overspent_categories_count: usize = 0;
+    let mut total_categories: usize = 0;
 
     for group in category_groups_raw {
-        if category_groups.len() >= MAX_GROUPS {
+        if category_groups.len() >= MAX_GROUPS || total_categories >= MAX_TOTAL_CATEGORIES {
             break;
         }
         if group.hidden || group.deleted {
@@ -302,7 +323,7 @@ pub fn build_overview_payload(
         let mut items = Vec::new();
 
         for cat in &group.categories {
-            if items.len() >= MAX_CATEGORIES_PER_GROUP {
+            if items.len() >= MAX_CATEGORIES_PER_GROUP || total_categories >= MAX_TOTAL_CATEGORIES {
                 break;
             }
             if cat.hidden || cat.deleted {
@@ -352,6 +373,7 @@ pub fn build_overview_payload(
                 overspent_amount_formatted,
                 progress_fraction,
             });
+            total_categories += 1;
         }
 
         if !items.is_empty() {
@@ -473,16 +495,16 @@ mod tests {
         let _ = format_currency(i64::MIN, &fmt);
     }
 
-    #[test]
-    fn test_payload_entity_counts_are_capped() {
-        use crate::models::{YnabCategory, YnabCategoryGroupWithCategories};
-
-        let make_cat = |i: usize| YnabCategory {
-            id: format!("cat-{}", i),
+    // Fixtures for the cap tests below. Building a payload needs four shapes
+    // filled in, and only one or two fields ever matter to a given test, so
+    // they live here rather than being spelled out per test.
+    fn sample_category(id: &str, hidden: bool) -> crate::models::YnabCategory {
+        crate::models::YnabCategory {
+            id: id.to_string(),
             category_group_id: "g".to_string(),
             category_group_name: None,
-            name: format!("Category {}", i),
-            hidden: false,
+            name: format!("Category {}", id),
+            hidden,
             budgeted: 1000,
             activity: -1000,
             balance: 0,
@@ -491,28 +513,35 @@ mod tests {
             goal_percentage_complete: None,
             goal_target_month: None,
             deleted: false,
-        };
+        }
+    }
 
-        // A response far larger than any real budget must not pass through whole.
-        let groups: Vec<_> = (0..MAX_GROUPS + 50)
-            .map(|g| YnabCategoryGroupWithCategories {
-                id: format!("group-{}", g),
-                name: format!("Group {}", g),
-                hidden: false,
-                deleted: false,
-                categories: (0..MAX_CATEGORIES_PER_GROUP + 25).map(make_cat).collect(),
-            })
-            .collect();
+    fn sample_group(
+        index: usize,
+        categories: Vec<crate::models::YnabCategory>,
+    ) -> crate::models::YnabCategoryGroupWithCategories {
+        crate::models::YnabCategoryGroupWithCategories {
+            id: format!("group-{}", index),
+            name: format!("Group {}", index),
+            hidden: false,
+            deleted: false,
+            categories,
+        }
+    }
 
-        let budget = YnabBudgetSummary {
+    fn sample_budget() -> YnabBudgetSummary {
+        YnabBudgetSummary {
             id: "3fa85f64-5717-4562-b3fc-2c963f66afa6".to_string(),
             name: "B".to_string(),
             last_modified_on: None,
             first_month: None,
             last_month: None,
             currency_format: None,
-        };
-        let month = YnabMonthDetail {
+        }
+    }
+
+    fn sample_month() -> YnabMonthDetail {
+        YnabMonthDetail {
             month: "2026-08-01".to_string(),
             income: 0,
             budgeted: 0,
@@ -520,21 +549,152 @@ mod tests {
             to_be_budgeted: 0,
             age_of_money: None,
             categories: vec![],
-        };
+        }
+    }
 
-        let out = build_overview_payload(
+    /// Builds a payload from `groups` alone, with everything else at its
+    /// smallest valid value.
+    fn payload_from_groups(
+        groups: &[crate::models::YnabCategoryGroupWithCategories],
+    ) -> PluginOverviewResponse {
+        let budget = sample_budget();
+        build_overview_payload(
             std::slice::from_ref(&budget),
             &budget,
-            &month,
+            &sample_month(),
             &[],
+            groups,
+            0,
+            None,
+        )
+    }
+
+    fn total_categories(out: &PluginOverviewResponse) -> usize {
+        out.category_groups.iter().map(|g| g.categories.len()).sum()
+    }
+
+    #[test]
+    fn test_payload_entity_counts_are_capped() {
+        // A response far larger than any real budget, on every axis at once.
+        let groups: Vec<_> = (0..MAX_GROUPS + 50)
+            .map(|g| {
+                sample_group(
+                    g,
+                    (0..MAX_CATEGORIES_PER_GROUP + 25)
+                        .map(|c| sample_category(&format!("g{}-c{}", g, c), false))
+                        .collect(),
+                )
+            })
+            .collect();
+
+        let budget = sample_budget();
+        let budgets: Vec<_> = (0..MAX_BUDGETS + 10).map(|_| budget.clone()).collect();
+        let months: Vec<_> = (0..MAX_TREND_MONTHS + 30)
+            .map(|m| crate::models::YnabMonthSummary {
+                month: format!("2026-{:02}-01", (m % 12) + 1),
+                income: 1000,
+                budgeted: 1000,
+                activity: -1000,
+                to_be_budgeted: 0,
+                age_of_money: None,
+                deleted: false,
+            })
+            .collect();
+
+        let out = build_overview_payload(
+            &budgets,
+            &budget,
+            &sample_month(),
+            &months,
             &groups,
             0,
             None,
         );
 
-        assert_eq!(out.category_groups.len(), MAX_GROUPS);
-        assert_eq!(out.category_groups[0].categories.len(), MAX_CATEGORIES_PER_GROUP);
+        assert_eq!(out.budgets.len(), MAX_BUDGETS);
+        assert!(out.category_groups.len() <= MAX_GROUPS);
+        assert!(out
+            .category_groups
+            .iter()
+            .all(|g| g.categories.len() <= MAX_CATEGORIES_PER_GROUP));
         assert!(out.spending_pie_chart.len() <= MAX_PIE_SLICES);
+        assert!(out.monthly_trends.len() <= MAX_TREND_MONTHS);
+
+        // The one that matters: the panel's nested Repeaters build a delegate
+        // per category across every group, so the total - not the per-group
+        // count - is what the shell has to survive. Per-list caps multiply;
+        // this one does not.
+        assert_eq!(total_categories(&out), MAX_TOTAL_CATEGORIES);
+    }
+
+    #[test]
+    fn test_total_cap_is_spent_across_groups_not_per_group() {
+        // Many small groups reach the total cap without any single group
+        // coming close to the per-group one - the case a per-group cap alone
+        // lets through, and the reason the total exists.
+        let per_group = 5;
+        let groups: Vec<_> = (0..MAX_GROUPS)
+            .map(|g| {
+                sample_group(
+                    g,
+                    (0..per_group)
+                        .map(|c| sample_category(&format!("g{}-c{}", g, c), false))
+                        .collect(),
+                )
+            })
+            .collect();
+
+        let out = payload_from_groups(&groups);
+
+        assert!(total_categories(&out) <= MAX_TOTAL_CATEGORIES);
+        assert!(out
+            .category_groups
+            .iter()
+            .all(|g| g.categories.len() <= per_group));
+    }
+
+    #[test]
+    fn test_hidden_categories_do_not_consume_the_total_allowance() {
+        // The cap counts what the panel renders. Hidden and deleted categories
+        // never become delegates, so spending the allowance on them would
+        // truncate a budget that costs the shell nothing.
+        let groups: Vec<_> = (0..20)
+            .map(|g| {
+                let mut categories = vec![sample_category(&format!("g{}-visible", g), false)];
+                categories.extend(
+                    (0..80).map(|c| sample_category(&format!("g{}-hidden-{}", g, c), true)),
+                );
+                sample_group(g, categories)
+            })
+            .collect();
+
+        let out = payload_from_groups(&groups);
+
+        assert_eq!(out.category_groups.len(), 20);
+        assert_eq!(total_categories(&out), 20);
+    }
+
+    #[test]
+    fn test_a_realistic_budget_survives_the_caps_intact() {
+        // The caps only exist to bound a hostile response. A budget larger
+        // than any the maintainers have seen must still render in full, or
+        // the defense has quietly become a bug that hides someone's money.
+        let groups: Vec<_> = (0..15)
+            .map(|g| {
+                sample_group(
+                    g,
+                    (0..20)
+                        .map(|c| sample_category(&format!("g{}-c{}", g, c), false))
+                        .collect(),
+                )
+            })
+            .collect();
+
+        let out = payload_from_groups(&groups);
+
+        assert_eq!(out.category_groups.len(), 15);
+        assert!(out.category_groups.iter().all(|g| g.categories.len() == 20));
+        assert_eq!(total_categories(&out), 300);
     }
 
     #[test]

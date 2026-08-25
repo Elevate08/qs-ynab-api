@@ -230,7 +230,8 @@ Panel {
         try {
           var parsed = JSON.parse(text)
           if (parsed.ok) {
-            root.overviewData = parsed
+            // Caps re-applied here so no Repeater is ever handed an unbounded list.
+            root.overviewData = Model.boundOverview(parsed)
             root.authenticated = true
             root.statusError = ""
             // Keep the invariant that activeBudgetId is either empty or a
@@ -268,7 +269,8 @@ Panel {
         try {
           var parsed = JSON.parse(text)
           if (parsed.ok) {
-            root.overviewData = parsed
+            // Caps re-applied here so no Repeater is ever handed an unbounded list.
+            root.overviewData = Model.boundOverview(parsed)
             root.authenticated = true
             root.statusError = ""
           } else {

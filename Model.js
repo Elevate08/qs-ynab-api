@@ -2,6 +2,78 @@
 
 .pragma library
 
+// Ceilings on how much of a helper payload the panel will render, mirroring the
+// caps the backend applies in aggregator.rs.
+//
+// The backend is the authority; these exist because the panel must not depend
+// on that being true. Every list here feeds a Repeater, and a Repeater builds
+// every delegate up front and keeps it alive - there is no windowing, no
+// recycling. Group and category Repeaters are nested, so their delegate count
+// is the product of the two lists, which is how a response well under the
+// 16 MiB transport cap can still ask the shell for tens of thousands of
+// objects and hang it. MAX_TOTAL_CATEGORIES bounds that product directly.
+//
+// A payload can reach the panel from a cache written by an older build, or
+// from a backend whose caps were loosened, so the panel re-applies them.
+var MAX_BUDGETS = 50
+var MAX_GROUPS = 50
+var MAX_CATEGORIES_PER_GROUP = 100
+var MAX_TOTAL_CATEGORIES = 500
+var MAX_PIE_SLICES = 50
+var MAX_TREND_MONTHS = 6
+
+// Returns at most `limit` entries, and the original array untouched when it
+// already fits - so the common case allocates nothing and keeps identity.
+function boundList(list, limit) {
+  if (!Array.isArray(list)) return []
+  if (limit <= 0) return []
+  return list.length > limit ? list.slice(0, limit) : list
+}
+
+function shallowCopy(obj) {
+  var copy = {}
+  for (var key in obj) copy[key] = obj[key]
+  return copy
+}
+
+// The single choke point every helper payload passes through before the panel
+// binds it. Bounding here rather than at each Repeater means a Repeater added
+// later cannot quietly escape the caps: there is one place to audit, and it is
+// the place the data arrives.
+//
+// Returns a bounded copy; the payload handed in is never mutated.
+function boundOverview(payload) {
+  if (!payload || typeof payload !== "object") return payload
+
+  var bounded = shallowCopy(payload)
+  bounded.budgets = boundList(payload.budgets, MAX_BUDGETS)
+  bounded.spending_pie_chart = boundList(payload.spending_pie_chart, MAX_PIE_SLICES)
+  bounded.monthly_trends = boundList(payload.monthly_trends, MAX_TREND_MONTHS)
+
+  // Categories are spent from one shared allowance across all groups, because
+  // that total is what decides how many delegates the nested Repeaters build.
+  // A group left with no allowance is dropped rather than rendered empty.
+  var groups = boundList(payload.category_groups, MAX_GROUPS)
+  var kept = []
+  var remaining = MAX_TOTAL_CATEGORIES
+  for (var i = 0; i < groups.length && remaining > 0; i++) {
+    var group = groups[i]
+    if (!group || typeof group !== "object") continue
+    var categories = boundList(group.categories, Math.min(MAX_CATEGORIES_PER_GROUP, remaining))
+    remaining -= categories.length
+    if (categories === group.categories) {
+      kept.push(group)
+    } else {
+      var trimmed = shallowCopy(group)
+      trimmed.categories = categories
+      kept.push(trimmed)
+    }
+  }
+  bounded.category_groups = kept
+
+  return bounded
+}
+
 // Palette of colors for the Spending Pie Chart slices (theme-harmonious)
 var PIE_PALETTE = [
   "#3b82f6", // Blue
