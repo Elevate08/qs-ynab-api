@@ -104,7 +104,14 @@ jobs:
             echo "bin/ynab-cli already matches this build; nothing to bundle"
             exit 0
           fi
-          git commit -m "ci: bundle ynab-cli from ${GITHUB_SHA::7} [skip ci]"
+          # Deliberately no `[skip ci]` marker. It would be redundant - this
+          # commit touches only bin/ynab-cli, which the paths filter above
+          # already excludes, so it cannot retrigger this workflow - and it is
+          # actively harmful: a release tag has to point at a bundle commit,
+          # because that is the only kind of commit where bin/ynab-cli exists,
+          # and GitHub applies `[skip ci]` to tag pushes too. With the marker
+          # present, tagging a release silently produces no run at all.
+          git commit -m "ci: bundle ynab-cli from ${GITHUB_SHA::7}"
           git pull --rebase origin "$GITHUB_REF_NAME"
 
           # SECURITY.md tells users this commit names the exact source the
