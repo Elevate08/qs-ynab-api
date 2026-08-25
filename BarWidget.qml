@@ -1,6 +1,8 @@
 import QtQuick
+import Quickshell
 import qs.Commons
 import qs.Ui
+import "Model.js" as Model
 
 BarWidget {
   id: root
@@ -92,7 +94,7 @@ BarWidget {
         if (panelLoader.item && panelLoader.item.overviewData) {
           var aom = panelLoader.item.overviewData.age_of_money ? panelLoader.item.overviewData.age_of_money.days : 0
           var net = panelLoader.item.overviewData.income_vs_spending ? panelLoader.item.overviewData.income_vs_spending.net_formatted : "$0"
-          root.bar.run("omarchy-notification-send --app-name \"YNAB Pulse\" \"YNAB Pulse\" \"Age of Money: " + aom + " days | Net: " + net + "\"")
+          Model.sendNotification(Quickshell, "YNAB Pulse", "Age of Money: " + aom + " days | Net: " + net)
         }
       } else if (b === Qt.MiddleButton) {
         root.refresh()

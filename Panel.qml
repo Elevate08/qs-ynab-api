@@ -27,9 +27,10 @@ Panel {
       root.open()
     }
     function tab(index: int): void {
+      // Any local process can drive this socket; clamp to the real tab range.
       root.showSettings = false
       root.selectedSpendingGroupId = ""
-      root.activeTab = index
+      root.activeTab = Math.max(0, Math.min(2, index))
       root.open()
     }
     function drilldown(): void {
@@ -96,6 +97,10 @@ Panel {
       showSettingsBudgetDropdown = false
       selectedSpendingGroupId = ""
       root.refresh()
+    } else {
+      // A half-typed Personal Access Token must not survive in a QML string
+      // property after the panel is dismissed.
+      tokenDraft = ""
     }
   }
 
@@ -113,7 +118,17 @@ Panel {
     forceFetchProc.running = true
   }
 
+  // YNAB budget ids are UUIDs. Anything else is refused before it reaches a
+  // subprocess argument or a URL handed to xdg-open.
+  function isValidBudgetId(id) {
+    return typeof id === "string" && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id)
+  }
+
   function selectBudget(budgetId) {
+    if (!isValidBudgetId(budgetId)) {
+      statusError = "Ignoring malformed budget identifier"
+      return
+    }
     activeBudgetId = budgetId
     showBudgetSelector = false
     showSettingsBudgetDropdown = false
@@ -146,6 +161,30 @@ Panel {
     collapsedGroups = copy
   }
 
+  YnabAuth {
+    id: auth
+
+    onTokenSaved: {
+      root.tokenDraft = ""
+      root.authenticated = true
+      root.statusError = ""
+      root.showSettings = false
+      root.forceRefresh()
+    }
+
+    onTokenCleared: function(cachePurged) {
+      root.authenticated = false
+      root.overviewData = null
+      root.loading = false
+      root.showSettings = false
+    }
+
+    onFailed: function(message) {
+      root.statusError = message || "Authentication failed"
+      root.loading = false
+    }
+  }
+
   function saveToken() {
     var trimmed = tokenDraft.trim()
     if (trimmed === "") {
@@ -154,18 +193,19 @@ Panel {
     }
     statusError = ""
     loading = true
-    setTokenProc.command = [cliPath, "auth", "set", trimmed]
-    setTokenProc.running = true
+    auth.saveToken(trimmed)
   }
 
   function clearToken() {
     loading = true
-    clearTokenProc.running = true
+    auth.clearToken()
   }
 
   function openWebApp() {
     var url = "https://app.ynab.com"
-    if (overviewData && overviewData.active_budget_id) {
+    // active_budget_id arrives from the network; only append it once it is a
+    // known-shape UUID, so a hostile response cannot steer xdg-open.
+    if (overviewData && isValidBudgetId(overviewData.active_budget_id)) {
       url += "/" + overviewData.active_budget_id
     }
     Quickshell.execDetached(["xdg-open", url])
@@ -175,18 +215,13 @@ Panel {
     Quickshell.execDetached(["xdg-open", "https://app.ynab.com/settings/developer"])
   }
 
-  // Binary path to ynab-cli helper
-  readonly property string cliPath: {
-    var override = Quickshell.env("QSYNAB_CLI_PATH")
-    if (override && override !== "") return override
-    var resolved = Qt.resolvedUrl("bin/ynab-cli").toString().replace(/^file:\/\//, "")
-    return resolved !== "" ? resolved : (Quickshell.env("HOME") + "/projects/qs-ynab-api/bin/ynab-cli")
-  }
+  // See Model.cliPath: resolved relative to the plugin, no override, no fallback.
+  readonly property string cliPath: Model.cliPath()
 
   // Process to fetch data
   Process {
     id: fetchProc
-    command: activeBudgetId !== "" && activeBudgetId !== "last-used"
+    command: root.isValidBudgetId(activeBudgetId)
       ? [cliPath, "fetch", "--budget-id", activeBudgetId]
       : [cliPath, "fetch"]
     stdout: StdioCollector {
@@ -198,7 +233,9 @@ Panel {
             root.overviewData = parsed
             root.authenticated = true
             root.statusError = ""
-            if (parsed.active_budget_id && root.activeBudgetId === "") {
+            // Keep the invariant that activeBudgetId is either empty or a
+            // valid UUID, so every consumer of it starts from clean state.
+            if (root.activeBudgetId === "" && root.isValidBudgetId(parsed.active_budget_id)) {
               root.activeBudgetId = parsed.active_budget_id
             }
           } else {
@@ -222,7 +259,7 @@ Panel {
   // Force fetch (bypass cache)
   Process {
     id: forceFetchProc
-    command: activeBudgetId !== "" && activeBudgetId !== "last-used"
+    command: root.isValidBudgetId(activeBudgetId)
       ? [cliPath, "fetch", "--force", "--budget-id", activeBudgetId]
       : [cliPath, "fetch", "--force"]
     stdout: StdioCollector {
@@ -249,55 +286,6 @@ Panel {
     }
   }
 
-  // Process to save new token
-  Process {
-    id: setTokenProc
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        try {
-          var parsed = JSON.parse(text)
-          if (parsed.ok) {
-            root.tokenDraft = ""
-            root.authenticated = true
-            root.statusError = ""
-            root.showSettings = false
-            root.forceRefresh()
-          } else {
-            root.statusError = parsed.error || "Failed to authenticate with token"
-            root.loading = false
-          }
-        } catch (e) {
-          root.statusError = "Failed to save token"
-          root.loading = false
-        }
-      }
-    }
-    onExited: function(code) {
-      if (code !== 0 && root.statusError === "") {
-        root.statusError = "Authentication failed"
-        root.loading = false
-      }
-    }
-  }
-
-  // Process to clear token
-  Process {
-    id: clearTokenProc
-    command: [cliPath, "auth", "clear"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        root.authenticated = false
-        root.overviewData = null
-        root.loading = false
-        root.showSettings = false
-      }
-    }
-    onExited: function(code) {
-      root.loading = false
-    }
-  }
 
   // Periodic refresh timer
   Timer {
@@ -327,9 +315,7 @@ Panel {
         if (root.overviewData) {
           var aom = root.overviewData.age_of_money ? root.overviewData.age_of_money.days : 0
           var rta = root.overviewData.ready_to_assign_formatted || "$0"
-          if (root.bar && typeof root.bar.run === "function") {
-            root.bar.run("omarchy-notification-send --app-name \"YNAB Pulse\" \"YNAB Pulse\" \"Ready to Assign: " + rta + " | Age of Money: " + aom + "d\"")
-          }
+          Model.sendNotification(Quickshell, "YNAB Pulse", "Ready to Assign: " + rta + " | Age of Money: " + aom + "d")
         } else {
           root.toggle()
         }
@@ -903,7 +889,7 @@ Panel {
                     }
 
                     Text {
-                      text: "Your token is encrypted and stored in your Linux Secret Service DBus keyring."
+                      text: "Your token is encrypted with a key held on this machine, then stored in your Linux Secret Service keyring."
                       color: Qt.darker(root.foreground, 1.4)
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.caption

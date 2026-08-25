@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Io
 import qs.Commons
 import qs.Ui
 
@@ -16,13 +15,41 @@ Item {
   property string tokenDraft: ""
   property string statusMsg: ""
   property bool isError: false
-  property bool loading: false
+  readonly property bool loading: auth.busy
 
   readonly property color foreground: Color.foreground
   readonly property string fontFamily: Style.font.family
-  readonly property string cliPath: {
-    var resolved = Qt.resolvedUrl("bin/ynab-cli").toString().replace(/^file:\/\//, "")
-    return resolved !== "" ? resolved : (Quickshell.env("HOME") + "/projects/qs-ynab-api/bin/ynab-cli")
+
+  YnabAuth {
+    id: auth
+
+    onStatusChecked: function(authenticated, userId) {
+      if (authenticated) {
+        root.statusMsg = "Connected to YNAB (User ID: " + (userId || "Active") + ")"
+        root.isError = false
+      } else {
+        root.statusMsg = "Not connected. Personal Access Token required."
+        root.isError = false
+      }
+    }
+
+    onTokenSaved: {
+      root.statusMsg = "Successfully authenticated and saved to Secret Service keyring!"
+      root.isError = false
+      root.tokenDraft = ""
+    }
+
+    onTokenCleared: function(cachePurged) {
+      root.statusMsg = cachePurged
+        ? "Token removed from Secret Service keyring and cache purged."
+        : "Token removed from Secret Service keyring."
+      root.isError = false
+    }
+
+    onFailed: function(message) {
+      root.statusMsg = message || "Operation failed"
+      root.isError = true
+    }
   }
 
   function open() {
@@ -30,13 +57,16 @@ Item {
     tokenDraft = ""
     statusMsg = ""
     isError = false
-    authStatusProc.running = true
+    auth.checkStatus()
   }
 
   function close() {
     opened = false
-    if (shell && typeof shell.hide === "function") {
-      shell.hide((manifest && manifest.id) || "io.github.elevate08.ynab-glance")
+    // Drop any half-typed Personal Access Token rather than leaving it in a
+    // QML string property after the dialog is dismissed.
+    tokenDraft = ""
+    if (shell && typeof shell.hide === "function" && manifest) {
+      shell.hide(manifest.id)
     }
   }
 
@@ -47,82 +77,15 @@ Item {
       isError = true
       return
     }
-    loading = true
     statusMsg = "Connecting to YNAB..."
     isError = false
-    saveTokenProc.command = [cliPath, "auth", "set", trimmed]
-    saveTokenProc.running = true
+    auth.saveToken(trimmed)
   }
 
   function clearToken() {
-    loading = true
     statusMsg = "Revoking token..."
-    clearTokenProc.running = true
-  }
-
-  Process {
-    id: authStatusProc
-    command: [cliPath, "auth", "status"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        try {
-          var parsed = JSON.parse(text)
-          if (parsed.authenticated) {
-            root.statusMsg = "Connected to YNAB (User ID: " + (parsed.user_id || "Active") + ")"
-            root.isError = false
-          } else {
-            root.statusMsg = "Not connected. Personal Access Token required."
-            root.isError = false
-          }
-        } catch (e) {
-          root.statusMsg = "Status check failed"
-        }
-      }
-    }
-  }
-
-  Process {
-    id: saveTokenProc
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        root.loading = false
-        try {
-          var parsed = JSON.parse(text)
-          if (parsed.ok) {
-            root.statusMsg = "Successfully authenticated and saved to Secret Service keyring!"
-            root.isError = false
-            root.tokenDraft = ""
-          } else {
-            root.statusMsg = parsed.error || "Failed to authenticate"
-            root.isError = true
-          }
-        } catch (e) {
-          root.statusMsg = "Error saving token"
-          root.isError = true
-        }
-      }
-    }
-    onExited: function(code) {
-      root.loading = false
-    }
-  }
-
-  Process {
-    id: clearTokenProc
-    command: [cliPath, "auth", "clear"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        root.loading = false
-        root.statusMsg = "Token removed from Secret Service keyring."
-        root.isError = false
-      }
-    }
-    onExited: function(code) {
-      root.loading = false
-    }
+    isError = false
+    auth.clearToken()
   }
 
   BorderSurface {

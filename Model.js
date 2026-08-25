@@ -50,3 +50,28 @@ function truncateString(str, maxLength) {
   if (str.length <= maxLength) return str;
   return str.substring(0, maxLength - 1) + "…";
 }
+
+// Path to the ynab-cli helper, resolved relative to this file's directory -
+// which is the plugin directory, the same one `bin/` sits in.
+//
+// No environment override and no fallback path: nothing that can set your
+// environment can substitute the binary that receives the Personal Access
+// Token. If resolution ever fails, the helper simply does not run.
+//
+// Lives here rather than in each entry point because Panel.qml, Settings.qml,
+// and YnabAuth.qml all need it, and a copy in each is a copy that can drift.
+function cliPath() {
+  return Qt.resolvedUrl("bin/ynab-cli").toString().replace(/^file:\/\//, "")
+}
+
+// Dispatches desktop notifications via argument list (never shell strings)
+// so formatted currency strings cannot introduce shell injection.
+function sendNotification(quickshell, summary, body) {
+  if (!quickshell || typeof quickshell.execDetached !== "function") return;
+  quickshell.execDetached([
+    "omarchy-notification-send",
+    "--app-name", "YNAB Pulse",
+    summary || "YNAB Pulse",
+    body
+  ]);
+}
