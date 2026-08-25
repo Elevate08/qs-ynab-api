@@ -65,7 +65,7 @@ fn format_integer_with_groups(n: i64, sep: &str) -> String {
     let mut out = String::new();
 
     for (i, &ch) in chars.iter().enumerate() {
-        if i > 0 && (len - i) % 3 == 0 {
+        if i > 0 && (len - i).is_multiple_of(3) {
             out.push_str(sep);
         }
         out.push(ch);
@@ -206,7 +206,7 @@ pub fn aggregate_monthly_trends(
     valid_months.sort_by(|a, b| a.month.cmp(&b.month));
 
     let count = valid_months.len();
-    let start_idx = if count > 6 { count - 6 } else { 0 };
+    let start_idx = count.saturating_sub(6);
     let slice = &valid_months[start_idx..];
 
     slice
@@ -376,7 +376,7 @@ pub fn build_overview_payload(
     }
 
     // Sort and calculate Pie Chart slices
-    pie_slices_raw.sort_by(|a, b| b.2.cmp(&a.2));
+    pie_slices_raw.sort_by_key(|slice| std::cmp::Reverse(slice.2));
     pie_slices_raw.truncate(MAX_PIE_SLICES);
     let mut spending_pie_chart = Vec::new();
     for (idx, (gid, gname, amount)) in pie_slices_raw.into_iter().enumerate() {
@@ -461,8 +461,10 @@ mod tests {
     fn test_format_currency_survives_hostile_api_values() {
         // decimal_digits is remote input; an absurd value must be clamped
         // rather than used as a pow exponent and a format width.
-        let mut fmt = YnabCurrencyFormat::default();
-        fmt.decimal_digits = u32::MAX;
+        let fmt = YnabCurrencyFormat {
+            decimal_digits: u32::MAX,
+            ..Default::default()
+        };
         let out = format_currency(123450, &fmt);
         assert!(out.len() < 64, "padding was not clamped: {} chars", out.len());
 

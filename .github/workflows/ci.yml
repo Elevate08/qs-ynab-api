@@ -55,8 +55,13 @@ jobs:
         with:
           workspaces: backend -> target
 
+      # -D warnings: the lint list is clean, so keep it that way rather than
+      # letting warnings accumulate into background noise nobody reads. Note
+      # this pins correctness to whatever `stable` is on the day it runs - a
+      # new release can introduce a lint that fails a build whose source never
+      # changed. That is the intended trade; the fix is to clear the new lint.
       - name: Lint
-        run: cargo clippy --manifest-path backend/Cargo.toml --all-targets
+        run: cargo clippy --manifest-path backend/Cargo.toml --all-targets -- -D warnings
 
       - name: Run backend tests
         run: cargo test --manifest-path backend/Cargo.toml
