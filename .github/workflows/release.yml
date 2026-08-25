@@ -1,0 +1,113 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  # Build provenance: lets a user verify the published binary was built by this
+  # workflow from this tag, rather than uploaded by hand. The binary receives
+  # the user's YNAB Personal Access Token, so where it came from matters.
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    name: Build Binary & Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libdbus-1-dev
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend -> target
+
+      - name: Run backend tests
+        run: cargo test --manifest-path backend/Cargo.toml --release
+
+      - name: Build release binary
+        run: cargo build --manifest-path backend/Cargo.toml --release
+
+      - name: Copy binary to bin/
+        run: |
+          mkdir -p bin
+          cp backend/target/release/ynab-cli bin/ynab-cli
+          chmod +x bin/ynab-cli
+
+      - name: Verify binary
+        run: |
+          ./bin/ynab-cli --help
+          ./bin/ynab-cli --version
+
+      - name: Package plugin bundle
+        run: |
+          set -euo pipefail
+          VERSION="${{ github.ref_name }}"
+          if [ -z "$VERSION" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="manual"
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+          # Staged under the plugin id so the archive extracts into a single
+          # directory - the one Omarchy expects in ~/.config/omarchy/plugins -
+          # instead of scattering files across the user's working directory.
+          PLUGIN_ID="io.github.elevate08.ynab-glance"
+          mkdir -p "stage/$PLUGIN_ID/bin"
+          cp manifest.json *.qml *.js README.md LICENSE SECURITY.md preview.png "stage/$PLUGIN_ID/"
+          cp bin/ynab-cli "stage/$PLUGIN_ID/bin/ynab-cli"
+          chmod +x "stage/$PLUGIN_ID/bin/ynab-cli"
+
+          tar -czf "ynab-pulse-${VERSION}-x86_64-linux.tar.gz" -C stage "$PLUGIN_ID"
+          (cd stage && zip -qr "../ynab-pulse-${VERSION}-x86_64-linux.zip" "$PLUGIN_ID")
+
+      - name: Generate checksums
+        run: |
+          set -euo pipefail
+          sha256sum \
+            bin/ynab-cli \
+            "ynab-pulse-${VERSION}-x86_64-linux.tar.gz" \
+            "ynab-pulse-${VERSION}-x86_64-linux.zip" \
+            > SHA256SUMS
+          cat SHA256SUMS
+
+      # Non-blocking: attestation needs a public repo (or GHAS). A failure here
+      # should not withhold a release that is otherwise good.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        continue-on-error: true
+        with:
+          subject-path: |
+            bin/ynab-cli
+            ynab-pulse-*-x86_64-linux.tar.gz
+            ynab-pulse-*-x86_64-linux.zip
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ynab-cli-x86_64-linux
+          path: bin/ynab-cli
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            bin/ynab-cli
+            ynab-pulse-*-x86_64-linux.tar.gz
+            ynab-pulse-*-x86_64-linux.zip
+            SHA256SUMS
+          generate_release_notes: true

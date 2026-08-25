@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend Tests & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libdbus-1-dev
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend -> target
+
+      - name: Lint
+        run: cargo clippy --manifest-path backend/Cargo.toml --all-targets
+
+      - name: Run backend tests
+        run: cargo test --manifest-path backend/Cargo.toml
+
+      - name: Build backend binary
+        run: cargo build --manifest-path backend/Cargo.toml --release
+
+  audit:
+    name: Dependency Advisories
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # The committed lockfile is what makes this meaningful: it audits the
+      # exact versions a user's build will resolve, not whatever is newest.
+      - name: Audit committed lockfile
+        uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          working-directory: backend

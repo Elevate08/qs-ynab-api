@@ -24,7 +24,7 @@ A fast, private, and beautiful **You Need A Budget (YNAB)** companion for the Om
   - **Category Group Drill-Down**: Click any pie slice or group row to drill down into sub-category spending outflows, budgeted amounts, remaining balances, and progress bars.
 - **Fast & Private Rust Backend**:
   - Sub-millisecond execution with native caching and zero Python runtime dependencies.
-  - **Encrypted Linux Keyring**: Stores your Personal Access Token in the Linux Secret Service (`org.freedesktop.secrets` / GNOME Keyring / KWallet).
+  - **Doubly Encrypted Token Storage**: Your Personal Access Token is sealed with XChaCha20-Poly1305 under a key generated for your install, and only the envelope goes into the Linux Secret Service (`org.freedesktop.secrets` / GNOME Keyring / KWallet). A program that dumps your keyring gets ciphertext. Survives reboots.
 - **Settings & Multi-Budget Management**:
   - **Active Budget Selector**: Full-width dropdown to switch between multiple budgets instantly.
   - **Background Refresh Interval Slider**: Easily configure background polling from 1 to 72 hours directly inside the UI.
@@ -61,6 +61,35 @@ All navigation and actions can be operated entirely via keyboard with the `Alt` 
 
 ## Installation & Setup
 
+### Option A — from a release (no Rust toolchain needed)
+
+Each tagged release publishes a bundle with the helper binary already built,
+plus a `SHA256SUMS` file. Verify before you install: the binary is what receives
+your Personal Access Token.
+
+```bash
+VERSION=v1.0.0
+cd /tmp
+curl -LO https://github.com/Elevate08/qs-ynab-api/releases/download/$VERSION/ynab-pulse-$VERSION-x86_64-linux.tar.gz
+curl -LO https://github.com/Elevate08/qs-ynab-api/releases/download/$VERSION/SHA256SUMS
+sha256sum --check --ignore-missing SHA256SUMS   # must print: OK
+
+mkdir -p ~/.config/omarchy/plugins
+tar -xzf ynab-pulse-$VERSION-x86_64-linux.tar.gz -C ~/.config/omarchy/plugins
+```
+
+The archive extracts to `io.github.elevate08.ynab-glance/`, the directory name
+Omarchy expects. Releases are built by GitHub Actions from the tagged source and
+carry build provenance, so you can also check where the binary came from:
+
+```bash
+gh attestation verify ynab-pulse-$VERSION-x86_64-linux.tar.gz --repo Elevate08/qs-ynab-api
+```
+
+Then skip to step 3.
+
+### Option B — from source
+
 1. **Install the Plugin**:
    Clone or copy this repository into your Omarchy plugins directory:
    ```bash
@@ -73,6 +102,10 @@ All navigation and actions can be operated entirely via keyboard with the `Alt` 
    cd ~/.config/omarchy/plugins/io.github.elevate08.ynab-glance
    ./build.sh
    ```
+   Needs a Rust toolchain and the D-Bus development headers (`dbus` on Arch,
+   `libdbus-1-dev` on Debian/Ubuntu) - the helper talks to the Secret Service
+   over D-Bus to store your token. A running Secret Service provider (GNOME
+   Keyring, KWallet, KeePassXC) must be available at runtime.
 
 3. **Add Widget to Omarchy Bar**:
    Add `io.github.elevate08.ynab-glance` to your bar configuration in `~/.config/omarchy/shell.json`:
@@ -92,24 +125,23 @@ All navigation and actions can be operated entirely via keyboard with the `Alt` 
    - Generate a Personal Access Token in [YNAB Account Settings > Developer](https://app.ynab.com/settings/developer).
    - Click the bar widget, paste your token, and click **Save & Connect**.
 
----
-
-## Demo & Testing
-
-To run automated screenshot captures and rebuild the README preview collage using mock fixture data:
-
-```bash
-./demo/capture.sh
-/usr/bin/python3 demo/make_collage.py
-```
+   To set the token from a terminal instead, pipe it in — it is deliberately not
+   accepted as an argument, so it stays out of `/proc` and your shell history:
+   ```bash
+   ./bin/ynab-cli auth set < /path/to/token.txt   # or: pass show ynab | ./bin/ynab-cli auth set
+   ```
 
 ---
 
 ## Security Model
 
-- **Zero Plaintext Secrets**: Personal Access Tokens are stored exclusively in the system's encrypted Secret Service.
-- **POSIX Cache Hardening**: Local offline cache files in `~/.cache/omarchy/ynab-glance/` use strict `0600` permissions and directory `0700`.
-- **Minimal Network Surface**: Direct HTTPS requests to `https://api.ynab.com/v1/` with TLS 1.3 verification and timeout protection.
+- **Zero Plaintext Secrets**: Personal Access Tokens are encrypted with a per-install key before they reach the system's Secret Service, so the keyring holds an envelope rather than the token. The key lives in `~/.local/share/io.github.elevate08.ynab-glance/token.key` (0600) and is destroyed when you revoke. Nothing is ever written to a dotfile. See [SECURITY.md](SECURITY.md) for what this does and does not defend against.
+- **No Token in `argv`**: The token is piped to the helper over stdin and never passed as a command-line argument, where `/proc/<pid>/cmdline` would expose it to every local process. `ynab-cli auth set` refuses an argument outright.
+- **Encrypted Offline Cache**: The cached overview in `~/.cache/io.github.elevate08.ynab-glance/` is sealed with the same per-install key as your token, so the file on disk is an envelope rather than readable JSON. It uses strict `0600` permissions in a `0700` directory, is ignored on read if it is not a private regular file, and is deleted rather than displayed if it fails its authentication tag.
+- **Revoke Means Erase**: Clearing the token also deletes the locally cached financial data.
+- **Minimal Network Surface**: HTTPS-only requests to `https://api.ynab.com/v1/` with certificate verification, a 10s timeout, and redirects refused so the bearer token can never be replayed to another host.
+
+See [SECURITY.md](SECURITY.md) for the full threat model, trust boundaries, and known limitations.
 
 ---
 
