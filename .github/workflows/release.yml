@@ -81,11 +81,25 @@ jobs:
             exit 0
           fi
 
+          # Compare the source the helper was built from, not commit order.
+          # A bundle commit is only rewritten when the binary actually changes,
+          # so after a docs- or workflow-only commit the newest bundle sits
+          # behind the tag while being built from identical backend source -
+          # ancestry would call that stale and be wrong. The backend tree is
+          # the thing that decides what the helper does, so compare that.
           bundle_commit="$(git log -1 --format=%H origin/main -- bin/ynab-cli)"
-          if git merge-base --is-ancestor "$GITHUB_SHA" "$bundle_commit"; then
-            echo "main bundles a helper built at ${bundle_commit::7}, which contains this tag"
+          bundle_src="$(git log -1 --format=%s "$bundle_commit" \
+            | sed -n 's/^ci: bundle ynab-cli from \([0-9a-f]\{7,40\}\).*/\1/p')"
+
+          if [ -z "$bundle_src" ]; then
+            echo "::warning::could not read the source commit out of ${bundle_commit::7}; skipping the staleness check"
+            exit 0
+          fi
+
+          if [ "$(git rev-parse "$GITHUB_SHA:backend")" = "$(git rev-parse "$bundle_src:backend")" ]; then
+            echo "main's bundled helper was built from backend source identical to this tag's"
           else
-            echo "::warning::main's bundled helper (${bundle_commit::7}) predates this tag, so installs will run an older helper than this release. Let CI re-bundle main before announcing it."
+            echo "::warning::main's bundled helper was built from ${bundle_src::7}, whose backend source differs from this tag's. Installs would run a helper that does not match this release - let CI re-bundle main before announcing it."
           fi
 
       # No plugin archive is published. The supported install is
