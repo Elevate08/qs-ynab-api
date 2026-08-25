@@ -42,6 +42,17 @@ jobs:
       - name: Run backend tests
         run: cargo test --manifest-path backend/Cargo.toml --release
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # A release ships the QML as well as the helper: `omarchy plugin add`
+      # clones the repo, so the panel a user runs is these files. Gate the tag
+      # on their tests too, rather than only on the binary's.
+      - name: Run QML helper tests
+        run: ./tests/run.sh
+
       - name: Build release binary
         run: cargo build --manifest-path backend/Cargo.toml --release
 

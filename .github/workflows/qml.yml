@@ -1,0 +1,48 @@
+name: QML
+
+# Split out of ci.yml on purpose. That workflow's push filter is scoped to
+# `backend/**` because every run of it rebuilds and re-bundles the helper
+# binary into main; widening the filter to cover the QML would produce bundle
+# commits for changes that cannot affect the binary. These suites need no
+# toolchain and publish nothing, so they get their own triggers instead.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**.qml'
+      - 'Model.js'
+      - 'tests/**'
+      # The bounds suite reads the helper's caps and fails when the panel's
+      # copies drift from them, so a change to either side has to run it.
+      - 'backend/src/aggregator.rs'
+      - '.github/workflows/qml.yml'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qml-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: QML Helper Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # No dependencies, no test runner, no lockfile to cache: the suites are
+      # plain node scripts. run.sh discovers every tests/*.test.js, so a suite
+      # added later runs here without this file being touched.
+      - name: Run QML helper tests
+        run: ./tests/run.sh

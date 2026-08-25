@@ -92,7 +92,8 @@ All navigation and actions can be operated entirely via keyboard with the `Alt` 
 
 Every `bin/ynab-cli` in this repository is produced by GitHub Actions:
 `ci.yml` compiles it from source and commits it to `main`
-(`ci: bundle ynab-cli ... [skip ci]`), and tagged releases attach their own
+(`ci: bundle ynab-cli from <sha>`, naming the exact source it was built from),
+and tagged releases attach their own
 build plus `SHA256SUMS`. Nothing is ever uploaded by hand. If you would rather
 not take that on faith:
 
@@ -130,6 +131,20 @@ Two notes for the source-build route:
 
 See [SECURITY.md](SECURITY.md) for the full trust discussion behind shipping a
 prebuilt helper.
+
+**Running the tests**
+
+```bash
+cargo test --manifest-path backend/Cargo.toml   # the helper (./build.sh runs this too)
+./tests/run.sh                                  # the panel's QML helpers (needs node)
+```
+
+`tests/run.sh` discovers every `tests/*.test.js`, and CI runs the same script,
+so a new suite is picked up in both places without either being edited. The
+suites assert the security properties SECURITY.md claims - that remote names
+cannot reach Qt's rich-text renderer, and that no list from the API can be
+handed to a `Repeater` unbounded - so a failure there is a regression in the
+threat model, not a style nit.
 
 ---
 
