@@ -9,9 +9,12 @@ BarWidget {
   moduleName: "io.github.elevate08.ynab-glance"
 
   readonly property var service: bar?.shell?.serviceFor("io.github.elevate08.ynab-glance")
-  readonly property var overviewData: service ? service.overviewData : (panelLoader.item ? panelLoader.item.overviewData : null)
-  readonly property bool authenticated: service ? service.authenticated : (panelLoader.item ? panelLoader.item.authenticated : false)
+  readonly property var overviewData: service ? service.overviewData : null
+  readonly property bool authenticated: service ? service.authenticated : false
   readonly property string iconGlyph: setting("iconGlyph", "\uf0d6")
+
+  readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
+  readonly property bool popoutSwitchClosing: panelLoader.item ? panelLoader.item.popoutSwitchClosing === true : false
 
   function injectPanel() {
     var target = panelLoader.item
@@ -25,19 +28,15 @@ BarWidget {
 
   function refresh() {
     if (service) service.refresh()
-    else if (panelLoader.item && panelLoader.item.refresh) panelLoader.item.refresh()
   }
 
   function forceRefresh() {
     if (service) service.forceRefresh()
-    else if (panelLoader.item && panelLoader.item.forceRefresh) panelLoader.item.forceRefresh()
   }
 
   function togglePanel() {
     if (panelLoader.item && panelLoader.item.toggle) panelLoader.item.toggle()
   }
-
-  readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
 
   function open() {
     if (panelLoader.item && panelLoader.item.openFromHotkey) panelLoader.item.openFromHotkey()
@@ -47,8 +46,6 @@ BarWidget {
   function close() {
     if (panelLoader.item && panelLoader.item.close) panelLoader.item.close()
   }
-
-  readonly property bool popoutSwitchClosing: panelLoader.item ? panelLoader.item.popoutSwitchClosing === true : false
 
   function closeForPopoutSwitch() {
     if (panelLoader.item) panelLoader.item.closeForPopoutSwitch()
@@ -69,26 +66,29 @@ BarWidget {
     function onRequestClose() { root.close() }
     function onRequestToggle() { root.togglePanel() }
     function onRequestTab(index) {
-      if (panelLoader.item) {
-        panelLoader.item.showSettings = false
-        panelLoader.item.selectedSpendingGroupId = ""
-        panelLoader.item.activeTab = Math.max(0, Math.min(2, index))
+      var p = panelLoader.item
+      if (p) {
+        p.showSettings = false
+        p.selectedSpendingGroupId = ""
+        p.activeTab = Math.max(0, Math.min(2, index))
         root.open()
       }
     }
     function onRequestSettings() {
-      if (panelLoader.item) {
-        panelLoader.item.showSettings = true
-        panelLoader.item.showBudgetSelector = false
-        panelLoader.item.showSettingsBudgetDropdown = false
+      var p = panelLoader.item
+      if (p) {
+        p.showSettings = true
+        p.showBudgetSelector = false
+        p.showSettingsBudgetDropdown = false
         root.open()
       }
     }
     function onRequestDrilldown(groupId) {
-      if (panelLoader.item) {
-        panelLoader.item.showSettings = false
-        panelLoader.item.activeTab = 2
-        if (groupId) panelLoader.item.selectedSpendingGroupId = groupId
+      var p = panelLoader.item
+      if (p) {
+        p.showSettings = false
+        p.activeTab = 2
+        if (groupId) p.selectedSpendingGroupId = groupId
         root.open()
       }
     }
@@ -99,10 +99,7 @@ BarWidget {
     active: true
     source: Qt.resolvedUrl("Panel.qml")
     visible: false
-    onLoaded: {
-      root.injectPanel()
-      Qt.callLater(root.injectPanel)
-    }
+    onLoaded: root.injectPanel()
   }
 
   BarIconButton {
