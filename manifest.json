@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.elevate08.ynab-glance",
   "name": "YNAB Pulse",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "elevate08",
   "license": "MIT",
   "description": "Live You Need A Budget pulse in the Omarchy bar with budget progress, spending vs income, age of money, and spending pie charts.",
