@@ -7,12 +7,13 @@
   "license": "MIT",
   "description": "Live You Need A Budget pulse in the Omarchy bar with budget progress, spending vs income, age of money, and spending pie charts.",
   "kinds": [
-    "bar-widget",
-    "overlay"
+    "service",
+    "bar-widget"
   ],
+  "keepLoaded": true,
   "entryPoints": {
-    "barWidget": "Panel.qml",
-    "overlay": "Settings.qml"
+    "service": "Service.qml",
+    "barWidget": "BarWidget.qml"
   },
   "barWidget": {
     "displayName": "YNAB Pulse",

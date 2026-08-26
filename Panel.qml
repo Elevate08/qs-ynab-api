@@ -10,38 +10,11 @@ import "Model.js" as Model
 Panel {
   id: root
   moduleName: "io.github.elevate08.ynab-glance"
-  ipcTarget: "io.github.elevate08.ynab-glance"
   manageIpc: false
 
-  IpcHandler {
-    target: "io.github.elevate08.ynab-glance"
-    function open(): void { root.open() }
-    function close(): void { root.close() }
-    function toggle(): void { root.toggle() }
-    function show(): void { root.open() }
-    function hide(): void { root.close() }
-    function settings(): void {
-      root.showSettings = true
-      root.showBudgetSelector = false
-      root.showSettingsBudgetDropdown = false
-      root.open()
-    }
-    function tab(index: int): void {
-      // Any local process can drive this socket; clamp to the real tab range.
-      root.showSettings = false
-      root.selectedSpendingGroupId = ""
-      root.activeTab = Math.max(0, Math.min(2, index))
-      root.open()
-    }
-    function drilldown(): void {
-      root.showSettings = false
-      root.activeTab = 2
-      if (root.overviewData && root.overviewData.spending_pie_chart && root.overviewData.spending_pie_chart.length > 1) {
-        root.selectedSpendingGroupId = root.overviewData.spending_pie_chart[1].group_id
-      }
-      root.open()
-    }
-  }
+  property var hostWidget: null
+  property var service: hostWidget && hostWidget.service ? hostWidget.service : (bar?.shell?.serviceFor("io.github.elevate08.ynab-glance"))
+  property var anchorItem: hostWidget ? hostWidget.anchorItem : null
 
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
@@ -51,11 +24,14 @@ Panel {
   readonly property color urgent: bar ? bar.urgent : Color.urgent
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
 
-  // Plugin state
-  property var overviewData: null
-  property bool authenticated: false
-  property bool loading: false
-  property string statusError: ""
+  // Plugin state (bound to service singleton)
+  readonly property var overviewData: service ? service.overviewData : null
+  readonly property bool authenticated: service ? service.authenticated : false
+  readonly property bool loading: service ? (service.loading || service.authBusy) : false
+  readonly property string statusError: service ? service.statusError : ""
+  property string activeBudgetId: service ? service.activeBudgetId : setting("defaultBudgetId", "")
+  property int runtimeRefreshHours: service ? service.runtimeRefreshHours : setting("refreshIntervalHours", 24)
+
   property int activeTab: 0 // 0: Buckets, 1: Income & Age, 2: Spending Analysis
   property bool showSettings: false
   property bool showBudgetSelector: false
@@ -77,12 +53,9 @@ Panel {
   property var collapsedGroups: ({})
   property bool allCollapsed: false
 
-  // Onboarding draft token & active budget
+  // Onboarding draft token
   property string tokenDraft: ""
-  property string activeBudgetId: setting("defaultBudgetId", "")
 
-  // Refresh interval (hours) — runtime mutable and persistent
-  property int runtimeRefreshHours: setting("refreshIntervalHours", 24)
   readonly property bool showAgeOfMoneyInBar: setting("showAgeOfMoneyInBar", true)
   readonly property string iconGlyph: setting("iconGlyph", "\uf0d6")
   readonly property string barLabel: {
@@ -105,17 +78,11 @@ Panel {
   }
 
   function refresh() {
-    if (fetchProc.running) return
-    loading = true
-    statusError = ""
-    fetchProc.running = true
+    if (service) service.refresh()
   }
 
   function forceRefresh() {
-    if (forceFetchProc.running) return
-    loading = true
-    statusError = ""
-    forceFetchProc.running = true
+    if (service) service.forceRefresh()
   }
 
   // YNAB budget ids are UUIDs. Anything else is refused before it reaches a
@@ -126,22 +93,15 @@ Panel {
 
   function selectBudget(budgetId) {
     if (!isValidBudgetId(budgetId)) {
-      statusError = "Ignoring malformed budget identifier"
       return
     }
-    activeBudgetId = budgetId
     showBudgetSelector = false
     showSettingsBudgetDropdown = false
-    // Persist budget selection to shell.json
-    Quickshell.execDetached(["omarchy", "bar", "set", "io.github.elevate08.ynab-glance", "defaultBudgetId", budgetId])
-    forceRefresh()
+    if (service) service.selectBudget(budgetId)
   }
 
   function setRefreshHours(hours) {
-    var h = Math.max(1, Math.min(168, hours))
-    runtimeRefreshHours = h
-    // Persist setting to shell.json automatically without user editing file
-    Quickshell.execDetached(["omarchy", "bar", "set", "io.github.elevate08.ynab-glance", "refreshIntervalHours", h.toString(), "--json"])
+    if (service) service.setRefreshHours(hours)
   }
 
   function toggleGroupCollapse(groupId) {
@@ -161,44 +121,23 @@ Panel {
     collapsedGroups = copy
   }
 
-  YnabAuth {
-    id: auth
-
-    onTokenSaved: {
-      root.tokenDraft = ""
-      root.authenticated = true
-      root.statusError = ""
-      root.showSettings = false
-      root.forceRefresh()
-    }
-
-    onTokenCleared: function(cachePurged) {
-      root.authenticated = false
-      root.overviewData = null
-      root.loading = false
-      root.showSettings = false
-    }
-
-    onFailed: function(message) {
-      root.statusError = message || "Authentication failed"
-      root.loading = false
-    }
-  }
-
   function saveToken() {
     var trimmed = tokenDraft.trim()
     if (trimmed === "") {
-      statusError = "Please enter your YNAB Personal Access Token"
       return
     }
-    statusError = ""
-    loading = true
-    auth.saveToken(trimmed)
+    if (service) {
+      service.saveToken(trimmed)
+      tokenDraft = ""
+      showSettings = false
+    }
   }
 
   function clearToken() {
-    loading = true
-    auth.clearToken()
+    if (service) {
+      service.clearToken()
+      showSettings = false
+    }
   }
 
   function openWebApp() {
@@ -215,94 +154,8 @@ Panel {
     Quickshell.execDetached(["xdg-open", "https://app.ynab.com/settings/developer"])
   }
 
-  // See Model.cliPath: resolved relative to the plugin, no override, no fallback.
-  readonly property string cliPath: Model.cliPath()
-
-  // Process to fetch data
-  Process {
-    id: fetchProc
-    command: root.isValidBudgetId(activeBudgetId)
-      ? [cliPath, "fetch", "--budget-id", activeBudgetId]
-      : [cliPath, "fetch"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        try {
-          var parsed = JSON.parse(text)
-          if (parsed.ok) {
-            // Caps re-applied here so no Repeater is ever handed an unbounded list.
-            root.overviewData = Model.boundOverview(parsed)
-            root.authenticated = true
-            root.statusError = ""
-            // Keep the invariant that activeBudgetId is either empty or a
-            // valid UUID, so every consumer of it starts from clean state.
-            if (root.activeBudgetId === "" && root.isValidBudgetId(parsed.active_budget_id)) {
-              root.activeBudgetId = parsed.active_budget_id
-            }
-          } else {
-            root.authenticated = parsed.authenticated || false
-            root.statusError = parsed.error || "Failed to fetch YNAB data"
-          }
-        } catch (e) {
-          root.statusError = "Error parsing YNAB backend response"
-        }
-        root.loading = false
-      }
-    }
-    onExited: function(code) {
-      root.loading = false
-      if (code !== 0 && root.statusError === "") {
-        root.statusError = "Backend helper exited with error code " + code
-      }
-    }
-  }
-
-  // Force fetch (bypass cache)
-  Process {
-    id: forceFetchProc
-    command: root.isValidBudgetId(activeBudgetId)
-      ? [cliPath, "fetch", "--force", "--budget-id", activeBudgetId]
-      : [cliPath, "fetch", "--force"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        try {
-          var parsed = JSON.parse(text)
-          if (parsed.ok) {
-            // Caps re-applied here so no Repeater is ever handed an unbounded list.
-            root.overviewData = Model.boundOverview(parsed)
-            root.authenticated = true
-            root.statusError = ""
-          } else {
-            root.authenticated = parsed.authenticated || false
-            root.statusError = parsed.error || "Failed to refresh YNAB data"
-          }
-        } catch (e) {
-          root.statusError = "Error parsing YNAB backend response"
-        }
-        root.loading = false
-      }
-    }
-    onExited: function(code) {
-      root.loading = false
-    }
-  }
-
-
-  // Periodic refresh timer
-  Timer {
-    interval: Math.max(1, root.runtimeRefreshHours) * 3600 * 1000
-    running: root.authenticated
-    repeat: true
-    onTriggered: root.refresh()
-  }
-
-  Component.onCompleted: {
-    root.refresh()
-  }
-
   // -------------------------------------------------------------------------
-  // Status Bar Button
+  // Status Bar Button (fallback if hosted standalone)
   // -------------------------------------------------------------------------
   BarIconButton {
     id: button
@@ -334,7 +187,7 @@ Panel {
   // -------------------------------------------------------------------------
   KeyboardPanel {
     id: keyboardPanel
-    anchorItem: button
+    anchorItem: root.anchorItem || button
     bar: root.bar
     owner: root
     open: root.opened

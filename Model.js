@@ -130,8 +130,8 @@ function truncateString(str, maxLength) {
 // environment can substitute the binary that receives the Personal Access
 // Token. If resolution ever fails, the helper simply does not run.
 //
-// Lives here rather than in each entry point because Panel.qml, Settings.qml,
-// and YnabAuth.qml all need it, and a copy in each is a copy that can drift.
+// Lives here rather than in each entry point because Service.qml
+// and YnabAuth.qml need it, and a copy in each is a copy that can drift.
 function cliPath() {
   return Qt.resolvedUrl("bin/ynab-cli").toString().replace(/^file:\/\//, "")
 }
