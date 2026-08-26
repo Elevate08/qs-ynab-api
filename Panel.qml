@@ -16,8 +16,8 @@ Panel {
   property var service: hostWidget && hostWidget.service ? hostWidget.service : (bar?.shell?.serviceFor("io.github.elevate08.ynab-glance"))
   property var anchorItem: hostWidget ? hostWidget.anchorItem : null
 
-  implicitWidth: button.implicitWidth
-  implicitHeight: button.implicitHeight
+  implicitWidth: 0
+  implicitHeight: 0
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property color barForeground: bar ? bar.barForeground : Color.foreground
@@ -55,13 +55,7 @@ Panel {
 
   // Onboarding draft token
   property string tokenDraft: ""
-
-  readonly property bool showAgeOfMoneyInBar: setting("showAgeOfMoneyInBar", true)
   readonly property string iconGlyph: setting("iconGlyph", "\uf0d6")
-  readonly property string barLabel: {
-    if (!overviewData || !overviewData.age_of_money || overviewData.age_of_money.days === undefined) return ""
-    return overviewData.age_of_money.days + "d"
-  }
 
   onOpenedChanged: {
     if (root.opened) {
@@ -154,31 +148,17 @@ Panel {
     Quickshell.execDetached(["xdg-open", "https://app.ynab.com/settings/developer"])
   }
 
-  // -------------------------------------------------------------------------
-  // Status Bar Button (fallback if hosted standalone)
-  // -------------------------------------------------------------------------
-  BarIconButton {
-    id: button
-    anchors.fill: parent
-    bar: root.bar
-    text: root.iconGlyph
-    slotSize: Style.bar.statusSlot
-    tooltipText: root.authenticated ? "YNAB Pulse" : "YNAB Pulse (Setup Required)"
-
-    onPressed: function(b) {
-      if (b === Qt.RightButton) {
-        if (root.overviewData) {
-          var aom = root.overviewData.age_of_money ? root.overviewData.age_of_money.days : 0
-          var rta = root.overviewData.ready_to_assign_formatted || "$0"
-          Model.sendNotification(Quickshell, "YNAB Pulse", "Ready to Assign: " + rta + " | Age of Money: " + aom + "d")
-        } else {
-          root.toggle()
-        }
-      } else if (b === Qt.MiddleButton) {
-        root.forceRefresh()
-      } else {
-        root.toggle()
-      }
+  function dismissCurrentView() {
+    if (selectedSpendingGroupId !== "") {
+      selectedSpendingGroupId = ""
+    } else if (showBudgetSelector) {
+      showBudgetSelector = false
+    } else if (showSettingsBudgetDropdown) {
+      showSettingsBudgetDropdown = false
+    } else if (showSettings) {
+      showSettings = false
+    } else {
+      close()
     }
   }
 
@@ -187,7 +167,7 @@ Panel {
   // -------------------------------------------------------------------------
   KeyboardPanel {
     id: keyboardPanel
-    anchorItem: root.anchorItem || button
+    anchorItem: root.anchorItem
     bar: root.bar
     owner: root
     open: root.opened
@@ -200,57 +180,25 @@ Panel {
       anchors.fill: parent
       blocked: tokenInput.activeFocus
 
-        onCloseRequested: {
-          if (root.selectedSpendingGroupId !== "") {
-            root.selectedSpendingGroupId = ""
-          } else if (root.showBudgetSelector) {
-            root.showBudgetSelector = false
-          } else if (root.showSettingsBudgetDropdown) {
-            root.showSettingsBudgetDropdown = false
-          } else if (root.showSettings) {
-            root.showSettings = false
-          } else {
-            root.close()
-          }
-        }
+      onCloseRequested: root.dismissCurrentView()
 
-        onTabRequested: function(direction) {
-          if (!root.showSettings && root.authenticated) {
-            var next = root.activeTab + direction
-            if (next < 0) next = 2
-            if (next > 2) next = 0
-            root.activeTab = next
-          }
+      onTabRequested: function(direction) {
+        if (!root.showSettings && root.authenticated) {
+          var next = root.activeTab + direction
+          if (next < 0) next = 2
+          if (next > 2) next = 0
+          root.activeTab = next
         }
+      }
 
-        Keys.priority: Keys.BeforeItem
-        Keys.onPressed: function(event) {
-          // Escape handling
-          if (event.key === Qt.Key_Escape) {
-            if (root.selectedSpendingGroupId !== "") {
-              root.selectedSpendingGroupId = ""
-              event.accepted = true
-              return
-            }
-            if (root.showBudgetSelector) {
-              root.showBudgetSelector = false
-              event.accepted = true
-              return
-            }
-            if (root.showSettingsBudgetDropdown) {
-              root.showSettingsBudgetDropdown = false
-              event.accepted = true
-              return
-            }
-            if (root.showSettings) {
-              root.showSettings = false
-              event.accepted = true
-              return
-            }
-            root.close()
-            event.accepted = true
-            return
-          }
+      Keys.priority: Keys.BeforeItem
+      Keys.onPressed: function(event) {
+        // Escape handling
+        if (event.key === Qt.Key_Escape) {
+          root.dismissCurrentView()
+          event.accepted = true
+          return
+        }
 
           // Alt Modifier Shortcuts
           if (event.modifiers & Qt.AltModifier) {
