@@ -30,19 +30,21 @@ Item {
     return typeof id === "string" && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id)
   }
 
-  function refresh() {
+  function executeFetch(force) {
     if (fetchProc.running) return
+    var args = [cliPath, "fetch"]
+    if (force) args.push("--force")
+    if (isValidBudgetId(activeBudgetId)) {
+      args.push("--budget-id", activeBudgetId)
+    }
+    fetchProc.command = args
     loading = true
     statusError = ""
     fetchProc.running = true
   }
 
-  function forceRefresh() {
-    if (forceFetchProc.running) return
-    loading = true
-    statusError = ""
-    forceFetchProc.running = true
-  }
+  function refresh() { executeFetch(false) }
+  function forceRefresh() { executeFetch(true) }
 
   function selectBudget(budgetId) {
     if (!isValidBudgetId(budgetId)) {
@@ -101,68 +103,38 @@ Item {
     auth.clearToken()
   }
 
-  // Subprocesses
+  function handleFetchResponse(text) {
+    try {
+      var parsed = JSON.parse(text)
+      if (parsed.ok) {
+        root.overviewData = Model.boundOverview(parsed)
+        root.authenticated = true
+        root.statusError = ""
+        if (root.activeBudgetId === "" && root.isValidBudgetId(parsed.active_budget_id)) {
+          root.activeBudgetId = parsed.active_budget_id
+        }
+      } else {
+        root.authenticated = parsed.authenticated || false
+        root.statusError = parsed.error || "Failed to fetch YNAB data"
+      }
+    } catch (e) {
+      root.statusError = "Error parsing YNAB backend response"
+    }
+    root.loading = false
+  }
+
+  // Subprocess
   Process {
     id: fetchProc
-    command: root.isValidBudgetId(activeBudgetId)
-      ? [cliPath, "fetch", "--budget-id", activeBudgetId]
-      : [cliPath, "fetch"]
     stdout: StdioCollector {
       waitForEnd: true
-      onStreamFinished: {
-        try {
-          var parsed = JSON.parse(text)
-          if (parsed.ok) {
-            root.overviewData = Model.boundOverview(parsed)
-            root.authenticated = true
-            root.statusError = ""
-            if (root.activeBudgetId === "" && root.isValidBudgetId(parsed.active_budget_id)) {
-              root.activeBudgetId = parsed.active_budget_id
-            }
-          } else {
-            root.authenticated = parsed.authenticated || false
-            root.statusError = parsed.error || "Failed to fetch YNAB data"
-          }
-        } catch (e) {
-          root.statusError = "Error parsing YNAB backend response"
-        }
-        root.loading = false
-      }
+      onStreamFinished: root.handleFetchResponse(text)
     }
     onExited: function(code) {
       root.loading = false
       if (code !== 0 && root.statusError === "") {
         root.statusError = "Backend helper exited with error code " + code
       }
-    }
-  }
-
-  Process {
-    id: forceFetchProc
-    command: root.isValidBudgetId(activeBudgetId)
-      ? [cliPath, "fetch", "--force", "--budget-id", activeBudgetId]
-      : [cliPath, "fetch", "--force"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        try {
-          var parsed = JSON.parse(text)
-          if (parsed.ok) {
-            root.overviewData = Model.boundOverview(parsed)
-            root.authenticated = true
-            root.statusError = ""
-          } else {
-            root.authenticated = parsed.authenticated || false
-            root.statusError = parsed.error || "Failed to refresh YNAB data"
-          }
-        } catch (e) {
-          root.statusError = "Error parsing YNAB backend response"
-        }
-        root.loading = false
-      }
-    }
-    onExited: function(code) {
-      root.loading = false
     }
   }
 
