@@ -150,11 +150,11 @@ for (const name of shared) {
     Model[name] === rustCaps[name], `Model.js ${Model[name]} vs aggregator.rs ${rustCaps[name]}`)
 }
 
-// --- Panel.qml wiring ---
+// --- Service.qml wiring ---
 // Bounding at one choke point is only a defense if nothing bypasses it, so pin
 // that every assignment to overviewData goes through boundOverview.
-const panel = fs.readFileSync(path.join(root, "Panel.qml"), "utf8")
-const assignments = panel.match(/^\s*root\.overviewData\s*=\s*.+$/gm) || []
+const service = fs.readFileSync(path.join(root, "Service.qml"), "utf8")
+const assignments = service.match(/^\s*root\.overviewData\s*=\s*.+$/gm) || []
 const unbounded = assignments.filter(l => !/Model\.boundOverview\(/.test(l) && !/=\s*null\s*$/.test(l))
 check("every payload assigned to overviewData passes through Model.boundOverview",
   assignments.length >= 2 && unbounded.length === 0,
