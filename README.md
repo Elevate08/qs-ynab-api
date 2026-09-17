@@ -39,8 +39,8 @@ All navigation and actions can be operated entirely via keyboard with the `Alt` 
 | Shortcut | Action |
 | :--- | :--- |
 | **`Alt+1`** / **`Alt+B`** | Switch to **Buckets** tab (Budget categories & overspent alerts) |
-| **`Alt+2`** / **`Alt+I`** | Switch to **Income & Age** tab (Age of money & 6-month trends) |
-| **`Alt+3`** / **`Alt+P`** | Switch to **Spending Analysis** tab (Pie chart breakdown) |
+| **`Alt+2`** / **`Alt+I`** | Switch to **Income** tab (Age of money & 6-month trends) |
+| **`Alt+3`** / **`Alt+P`** | Switch to **Spending** tab (Pie chart breakdown) |
 | **`Alt+D`** | Toggle **Spending Drill-down** (inspect sub-category details) |
 | **`Alt+M`** / **`Alt+U`** | Open **Active Budget Selector** dropdown |
 | **`Alt+S`** / **`Alt+,`** | Toggle **Settings** panel (slider, budgets, security) |

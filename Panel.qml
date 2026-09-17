@@ -15,6 +15,8 @@ Panel {
   property var hostWidget: null
   property var service: hostWidget && hostWidget.service ? hostWidget.service : (bar?.shell?.serviceFor("io.github.elevate08.ynab-glance"))
   property var anchorItem: hostWidget ? hostWidget.anchorItem : null
+  // Popout identity is the bar slot, not this nested panel.
+  readonly property var barIdentity: hostWidget || root
 
   implicitWidth: 0
   implicitHeight: 0
@@ -32,7 +34,7 @@ Panel {
   property string activeBudgetId: service ? service.activeBudgetId : setting("defaultBudgetId", "")
   property int runtimeRefreshHours: service ? service.runtimeRefreshHours : setting("refreshIntervalHours", 24)
 
-  property int activeTab: 0 // 0: Buckets, 1: Income & Age, 2: Spending Analysis
+  property int activeTab: 0 // 0: Buckets, 1: Income, 2: Spending
   property bool showSettings: false
   property bool showBudgetSelector: false
   property bool showSettingsBudgetDropdown: false
@@ -169,15 +171,16 @@ Panel {
     id: keyboardPanel
     anchorItem: root.anchorItem
     bar: root.bar
-    owner: root
+    owner: root.barIdentity
     open: root.opened
-    contentWidth: Style.space(420)
-    contentHeight: Style.space(580)
+    contentWidth: keyboardPanel.fittedContentWidth(Style.space(480))
+    contentHeight: keyboardPanel.cappedContentHeight(Style.space(600))
     focusTarget: keyCatcher
 
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
+      clip: true
       blocked: tokenInput.activeFocus
 
       onCloseRequested: root.dismissCurrentView()
@@ -210,7 +213,7 @@ Panel {
               event.accepted = true
               return
             }
-            // Alt+2 or Alt+I: Income & Age tab
+            // Alt+2 or Alt+I: Income tab
             if (event.key === Qt.Key_2 || event.key === Qt.Key_I) {
               root.activeTab = 1
               root.showSettings = false
@@ -218,7 +221,7 @@ Panel {
               event.accepted = true
               return
             }
-            // Alt+3 or Alt+P: Spending Analysis tab
+            // Alt+3 or Alt+P: Spending tab
             if (event.key === Qt.Key_3 || event.key === Qt.Key_P) {
               root.activeTab = 2
               root.showSettings = false
@@ -288,7 +291,6 @@ Panel {
 
         ColumnLayout {
           anchors.fill: parent
-          anchors.margins: Style.spacing.popupPadding
           spacing: Style.space(8)
 
           // ================= TOP HEADER =================
@@ -319,16 +321,6 @@ Panel {
 
             Item { Layout.fillWidth: true }
 
-            // Budget Switcher Dropdown Button
-            Button {
-              visible: root.authenticated && root.overviewData && root.overviewData.budgets && root.overviewData.budgets.length > 1
-              text: Model.plainLabel((root.overviewData && root.overviewData.active_budget_name ? root.overviewData.active_budget_name : "Budget") + " 󰁥")
-              tooltipText: "Switch Budget (Alt+M)"
-              selected: root.showBudgetSelector
-              onClicked: root.showBudgetSelector = !root.showBudgetSelector
-            }
-
-            // Web App Launch Button
             Button {
               text: "󰖟"
               tooltipText: "Open YNAB Web App in Browser (Alt+W)"
@@ -336,7 +328,6 @@ Panel {
               visible: root.authenticated
             }
 
-            // Refresh Button
             Button {
               text: root.loading ? "…" : "󰑐"
               tooltipText: "Refresh budget data (Alt+R)"
@@ -344,7 +335,6 @@ Panel {
               visible: root.authenticated
             }
 
-            // Settings Button
             Button {
               text: "󰒓"
               tooltipText: root.showSettings ? "Exit Settings (Alt+S or Esc)" : "Settings (Alt+S)"
@@ -354,6 +344,16 @@ Panel {
                 root.showBudgetSelector = false
               }
             }
+          }
+
+          Button {
+            Layout.fillWidth: true
+            visible: root.authenticated && root.overviewData && root.overviewData.budgets && root.overviewData.budgets.length > 1
+            leftAlign: true
+            text: Model.plainLabel((root.overviewData && root.overviewData.active_budget_name ? root.overviewData.active_budget_name : "Budget") + "  󰁥")
+            tooltipText: "Switch Budget (Alt+M)"
+            selected: root.showBudgetSelector
+            onClicked: root.showBudgetSelector = !root.showBudgetSelector
           }
 
           // ================= HEADER BUDGET SWITCHER DROPDOWN =================
@@ -420,6 +420,7 @@ Panel {
           ColumnLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.minimumHeight: 0
             visible: !root.authenticated && !root.showSettings
             spacing: Style.space(12)
 
@@ -506,17 +507,17 @@ Panel {
           Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.minimumHeight: 0
             visible: root.showSettings
 
-            ScrollView {
-              id: settingsScroll
+            VerticalFlick {
+              id: settingsFlick
               anchors.fill: parent
-              clip: true
-              ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+              contentHeight: settingsColumn.implicitHeight
 
               Column {
                 id: settingsColumn
-                width: settingsScroll.width - Style.space(16)
+                width: settingsFlick.width
                 spacing: Style.space(12)
 
                 // Top Settings Title
@@ -790,7 +791,7 @@ Panel {
 
                       Text {
                         textFormat: Text.PlainText
-                        text: "• Alt+1 / Alt+B : Switch to Buckets tab\n• Alt+2 / Alt+I : Switch to Income & Age tab\n• Alt+3 / Alt+P : Switch to Spending Analysis tab\n• Alt+M         : Open Budget Switcher dropdown\n• Alt+R         : Force refresh data from YNAB\n• Alt+W         : Open YNAB web app in browser\n• Alt+S / Esc   : Toggle / exit settings\n• Esc           : Close panel popup"
+                        text: "• Alt+1 / Alt+B : Switch to Buckets tab\n• Alt+2 / Alt+I : Switch to Income tab\n• Alt+3 / Alt+P : Switch to Spending tab\n• Alt+M         : Open Budget Switcher dropdown\n• Alt+R         : Force refresh data from YNAB\n• Alt+W         : Open YNAB web app in browser\n• Alt+S / Esc   : Toggle / exit settings\n• Esc           : Close panel popup"
                         color: Qt.darker(root.foreground, 1.4)
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -809,6 +810,7 @@ Panel {
           ColumnLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.minimumHeight: 0
             visible: root.authenticated && !root.showSettings
             spacing: Style.space(8)
 
@@ -816,6 +818,7 @@ Panel {
             Item {
               Layout.fillWidth: true
               Layout.fillHeight: true
+              Layout.minimumHeight: 0
               visible: root.activeTab === 0
 
               ColumnLayout {
@@ -1022,13 +1025,16 @@ Panel {
                 }
 
                 // 4. SCROLLABLE CATEGORY GROUPS WITH COLLAPSIBLE HEADERS
-                ScrollView {
+                VerticalFlick {
+                  id: bucketsFlick
                   Layout.fillWidth: true
                   Layout.fillHeight: true
-                  clip: true
+                  Layout.minimumHeight: 0
+                  contentHeight: bucketsColumn.implicitHeight
 
                   ColumnLayout {
-                    width: parent.width - Style.space(16)
+                    id: bucketsColumn
+                    width: bucketsFlick.width
                     spacing: Style.space(10)
 
                     Repeater {
@@ -1174,15 +1180,17 @@ Panel {
             Item {
               Layout.fillWidth: true
               Layout.fillHeight: true
+              Layout.minimumHeight: 0
               visible: root.activeTab === 1
 
-              ScrollView {
+              VerticalFlick {
+                id: incomeFlick
                 anchors.fill: parent
-                clip: true
-                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                contentHeight: incomeColumn.implicitHeight
 
                 ColumnLayout {
-                  width: parent.width - Style.space(16)
+                  id: incomeColumn
+                  width: incomeFlick.width
                   spacing: Style.space(10)
 
                   // 1. Age of Money Card
@@ -1399,6 +1407,7 @@ Panel {
             Item {
               Layout.fillWidth: true
               Layout.fillHeight: true
+              Layout.minimumHeight: 0
               visible: root.activeTab === 2
 
               ColumnLayout {
@@ -1421,14 +1430,16 @@ Panel {
                 }
 
                 // Interactive Drill-Down or All Groups Legend
-                ScrollView {
+                VerticalFlick {
+                  id: spendingFlick
                   Layout.fillWidth: true
                   Layout.fillHeight: true
-                  clip: true
-                  ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                  Layout.minimumHeight: 0
+                  contentHeight: spendingColumn.implicitHeight
 
                   ColumnLayout {
-                    width: parent.width - Style.space(16)
+                    id: spendingColumn
+                    width: spendingFlick.width
                     spacing: Style.space(6)
 
                     // Mode A: Detail View when a Group is Selected
@@ -1644,9 +1655,12 @@ Panel {
               RowLayout {
                 id: tabRow
                 anchors.centerIn: parent
+                width: parent.width - Style.space(8)
                 spacing: Style.space(6)
 
                 Button {
+                  Layout.fillWidth: true
+                  Layout.minimumWidth: 0
                   text: "Buckets"
                   tooltipText: "Budget Buckets (Alt+1 or Alt+B)"
                   selected: root.activeTab === 0
@@ -1654,14 +1668,18 @@ Panel {
                 }
 
                 Button {
-                  text: "Income & Age"
+                  Layout.fillWidth: true
+                  Layout.minimumWidth: 0
+                  text: "Income"
                   tooltipText: "Income vs Spending & Age of Money (Alt+2 or Alt+I)"
                   selected: root.activeTab === 1
                   onClicked: root.activeTab = 1
                 }
 
                 Button {
-                  text: "Spending Analysis"
+                  Layout.fillWidth: true
+                  Layout.minimumWidth: 0
+                  text: "Spending"
                   tooltipText: "Spending Pie Chart & Breakdown (Alt+3 or Alt+P)"
                   selected: root.activeTab === 2
                   onClicked: root.activeTab = 2
@@ -1672,4 +1690,13 @@ Panel {
         }
       }
     }
+
+  component VerticalFlick: Flickable {
+    clip: true
+    contentWidth: width
+    boundsBehavior: Flickable.StopAtBounds
+    flickableDirection: Flickable.VerticalFlick
+    interactive: contentHeight > height
+    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
   }
+}
