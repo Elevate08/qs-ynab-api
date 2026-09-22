@@ -1,11 +1,11 @@
-# YNAB Pulse (Omarchy Plugin)
+# YNAB Glance (Omarchy Plugin)
 
 A fast, private, and beautiful **You Need A Budget (YNAB)** companion for the Omarchy Linux desktop shell.
 
-- **Plugin Name**: `YNAB Pulse`
+- **Plugin Name**: `YNAB Glance`
 - **Plugin ID**: `io.github.elevate08.ynab-glance`
 
-![YNAB Pulse Preview](preview.png)
+![YNAB Glance Preview](preview.png)
 
 ---
 
@@ -19,7 +19,7 @@ A fast, private, and beautiful **You Need A Budget (YNAB)** companion for the Om
   - **Age of Money Tracker**: Days metric with status health badge.
   - **Current Month Inflow vs. Outflow**: Total Income, Spending, Net Savings, and Savings Rate %.
   - **Multi-Month Historical Trends**: Side-by-side Income vs. Spending dual-bar chart with interactive hover tooltips across the last 6 months.
-- **Interactive Spending Analysis**:
+- **Spending**:
   - **Doughnut Pie Chart**: High-DPI canvas visualization of monthly expenses by Category Group.
   - **Category Group Drill-Down**: Click any pie slice or group row to drill down into sub-category spending outflows, budgeted amounts, remaining balances, and progress bars.
 - **Fast & Private Rust Backend**:
@@ -53,7 +53,7 @@ All navigation and actions can be operated entirely via keyboard with the `Alt` 
 
 ## Status Bar Mouse Controls
 
-- **Left-Click**: Toggle open/close the YNAB Pulse panel.
+- **Left-Click**: Toggle open/close the YNAB Glance panel.
 - **Middle-Click**: Trigger an immediate background fetch from YNAB.
 - **Right-Click**: Send a desktop notification summary with Ready to Assign and Age of Money.
 

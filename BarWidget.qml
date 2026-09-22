@@ -113,7 +113,7 @@ BarWidget {
     bar: root.bar
     text: root.iconGlyph
     slotSize: Style.bar.statusSlot
-    tooltipText: root.authenticated ? "YNAB Pulse" : "YNAB Pulse (Setup Required)"
+    tooltipText: root.authenticated ? "YNAB Glance" : "YNAB Glance (Setup Required)"
 
     onPressed: function(b) {
       if (!root.bar) return
@@ -121,7 +121,7 @@ BarWidget {
         if (root.overviewData) {
           var aom = root.overviewData.age_of_money ? root.overviewData.age_of_money.days : 0
           var rta = root.overviewData.ready_to_assign_formatted || "$0"
-          Model.sendNotification(Quickshell, "YNAB Pulse", "Ready to Assign: " + rta + " | Age of Money: " + aom + "d")
+          Model.sendNotification(Quickshell, "YNAB Glance", "Ready to Assign: " + rta + " | Age of Money: " + aom + "d")
         } else {
           root.togglePanel()
         }

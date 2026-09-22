@@ -74,7 +74,7 @@ impl YnabClient {
         headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
         headers.insert(
             USER_AGENT,
-            HeaderValue::from_static("omarchy-ynab-pulse/1.0"),
+            HeaderValue::from_static(concat!("omarchy-ynab-glance/", env!("CARGO_PKG_VERSION"))),
         );
 
         let client = Client::builder()

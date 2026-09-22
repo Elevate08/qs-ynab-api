@@ -1,7 +1,7 @@
-# YNAB Pulse: Service & Bar-Widget Architectural Decoupling
+# YNAB Glance: Service & Bar-Widget Architectural Decoupling
 
 ## Problem Statement
-How might we decouple background sync, subprocess orchestration, and IPC handling from UI rendering so YNAB Pulse operates as a resilient, multi-monitor-safe Omarchy service with a lightweight bar widget?
+How might we decouple background sync, subprocess orchestration, and IPC handling from UI rendering so YNAB Glance operates as a resilient, multi-monitor-safe Omarchy service with a lightweight bar widget?
 
 ## Recommended Direction
 Transform the plugin from a monolithic `bar-widget` into a dual `kinds: ["service", "bar-widget"]` plugin modeled after `omarchy.media`:

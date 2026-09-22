@@ -311,7 +311,7 @@ Panel {
 
               Text {
                 textFormat: Text.PlainText
-                text: "YNAB Pulse"
+                text: "YNAB Glance"
                 color: root.foreground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.subtitle
@@ -523,7 +523,7 @@ Panel {
                 // Top Settings Title
                 Text {
                   textFormat: Text.PlainText
-                  text: "YNAB Pulse Settings"
+                  text: "YNAB Glance Settings"
                   color: root.foreground
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.subtitle
@@ -639,7 +639,7 @@ Panel {
 
                     Text {
                       textFormat: Text.PlainText
-                      text: "Frequency at which YNAB Pulse fetches updated balances in the background (configured in hours)."
+                      text: "Frequency at which YNAB Glance fetches updated balances in the background (configured in hours)."
                       color: Qt.darker(root.foreground, 1.4)
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.caption
@@ -1382,7 +1382,7 @@ Panel {
 
                       Text {
                         textFormat: Text.PlainText
-                        text: "Income vs. Expenses Trend"
+                        text: "Income vs. Spending Trend"
                         color: root.foreground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.subtitle
@@ -1671,7 +1671,7 @@ Panel {
                   Layout.fillWidth: true
                   Layout.minimumWidth: 0
                   text: "Income"
-                  tooltipText: "Income vs Spending & Age of Money (Alt+2 or Alt+I)"
+                  tooltipText: "Income vs. Spending (Alt+2 or Alt+I)"
                   selected: root.activeTab === 1
                   onClicked: root.activeTab = 1
                 }
@@ -1680,7 +1680,7 @@ Panel {
                   Layout.fillWidth: true
                   Layout.minimumWidth: 0
                   text: "Spending"
-                  tooltipText: "Spending Pie Chart & Breakdown (Alt+3 or Alt+P)"
+                  tooltipText: "Spending (Alt+3 or Alt+P)"
                   selected: root.activeTab === 2
                   onClicked: root.activeTab = 2
                 }

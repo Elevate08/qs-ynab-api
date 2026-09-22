@@ -1,6 +1,6 @@
 # Security Model
 
-YNAB Pulse holds two things worth protecting:
+YNAB Glance holds two things worth protecting:
 
 1. **The YNAB Personal Access Token.** A PAT is not read-only — it grants full
    API access to every budget on the account. Treat it as a password.

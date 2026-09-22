@@ -1,4 +1,4 @@
-// Helper utilities for YNAB Overview Plugin
+// Helper utilities for YNAB Glance
 
 .pragma library
 
@@ -142,8 +142,8 @@ function sendNotification(quickshell, summary, body) {
   if (!quickshell || typeof quickshell.execDetached !== "function") return;
   quickshell.execDetached([
     "omarchy-notification-send",
-    "--app-name", "YNAB Pulse",
-    summary || "YNAB Pulse",
+    "--app-name", "YNAB Glance",
+    summary || "YNAB Glance",
     body
   ]);
 }
